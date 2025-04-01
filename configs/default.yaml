@@ -30,6 +30,6 @@ isaac:
 
 # Visualization
 visualization:
-  update_interval: 1  # Update every N frames
+  update_interval: 2  # Update every N frames
   particle_scale: 1.0  # Visual size multiplier
   
