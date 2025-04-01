@@ -1,0 +1,35 @@
+simulation:
+  dt: 0.001
+  max_steps: 1000
+  settle_steps: 100  # Steps before main loop
+  
+sph:
+  scheme: "elastic"
+  kernel:
+    type: "cubic_spline"
+    h: 0.1
+    
+object:
+  type: "sphere"
+  radius: 0.5
+  material: "rubber"
+  
+isaac:
+  env_count: 1
+  device: "cuda:0"
+  graphics_backend: "directx"  # or "opengl", "vulkan"
+  compute_device_id: 0
+  graphics_device_id: 0
+  physics_engine: gymapi.SIM_PHYSX
+  use_gpu: True
+  num_threads: 4
+  gravity: [0, 0, -9.81]
+  env_spacing: [2, 2, 2]
+  num_envs: 1
+
+
+# Visualization
+visualization:
+  update_interval: 1  # Update every N frames
+  particle_scale: 1.0  # Visual size multiplier
+  
