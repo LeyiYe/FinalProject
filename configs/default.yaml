@@ -4,10 +4,12 @@ simulation:
   settle_steps: 100  # Steps before main loop
   
 sph:
+  dt: 0.001
+  tf: 10.0
+  integrator: "euler"
+  adaptive_timestep: false
   scheme: "elastic"
-  kernel:
-    type: "cubic_spline"
-    h: 0.1
+
     
 object:
   type: "sphere"

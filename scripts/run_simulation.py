@@ -11,7 +11,7 @@ from core.sph_simulator import SPHSimulator
 from core.isaac_interface import IsaacVisualizer
 from objects.factory import ObjectFactory
 
-@hydra.main(config_path="../configs", config_name="default")
+@hydra.main(config_path="../configs", config_name="default", version_base="1.1")
 def run_simulation(cfg: DictConfig):
     # Track performance
     last_time = time.time()
