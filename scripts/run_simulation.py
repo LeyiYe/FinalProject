@@ -1,15 +1,15 @@
 import hydra
 import time
 
-from FinalProject.core.sph_simulator import SPHSimulator
-from FinalProject.core.isaac_interface import IsaacVisualizer
-from FinalProject.objects.factory import ObjectFactory
+#from sph_simulator import SPHSimulator
+#from isaac_interface import IsaacVisualizer
+#from objects.factory import ObjectFactory
 
 from omegaconf import DictConfig
 from isaacgym import gymapi
-#from core.sph_simulator import SPHSimulator
-#from core.isaac_interface import IsaacVisualizer
-#from objects.factory import ObjectFactory
+from core.sph_simulator import SPHSimulator
+from core.isaac_interface import IsaacVisualizer
+from objects.factory import ObjectFactory
 
 @hydra.main(config_path="../configs", config_name="default")
 def run_simulation(cfg: DictConfig):
