@@ -129,7 +129,7 @@ class GraspEvaluator:
                 print("Existing data is imperfect, rerunning")
         return False
 
-    def get_grasp_candidates(self): 
+    #def get_grasp_candidates(self): 
         """Load the candidate grasp of interest."""
         #grasp_file_name = self.object_name + "_grasps.h5"
         #f = h5py.File(os.path.realpath(os.path.join(self.object_path, grasp_file_name)), 'r')
@@ -188,19 +188,7 @@ class GraspEvaluator:
         self.env_lower = gymapi.Vec3(-self.env_dim, 0, -self.env_dim)
         self.env_upper = gymapi.Vec3(self.env_dim, self.env_dim, self.env_dim)
 
-    def set_object_parameters(self, asset_file_object, **kwargs):
-        """Write object parameters into URDF file."""
-        #try:
-        #    tree = ET.parse(asset_file_object)
-        #    root = tree.getroot()
-        #    for key, value in kwargs.items():
-        #        for attribute in root.iter(key):
-        #            attribute.set('value', str(value))
-        #    tree.write(asset_file_object)
-        #    return True
-        #except BaseException:
-        #    return False
-
+ 
     def set_asset_properties(self):
         """Define asset properties."""
         asset_root = ''
@@ -213,25 +201,6 @@ class GraspEvaluator:
         asset_options.disable_gravity = True
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_VEL
 
-        # Load Franka and object assets
-        #asset_file_platform = os.path.join(self.assets_dir, 'platform.urdf')
-        #asset_file_object = os.path.join(self.object_path, "soft_body.urdf")
-
-        # Set object parameters for object material properties
-        #set_parameter_result = False
-        #fail_counter = 0
-        """
-        while set_parameter_result is False and fail_counter < 10:
-            try:
-                set_parameter_result = self.set_object_parameters(
-                    asset_file_object,
-                    density=self.density,
-                    youngs=self.youngs,
-                    poissons=self.poissons)
-            except BaseException:
-                fail_counter += 1
-                pass
-"""
         # Set asset options
         asset_options.fix_base_link = True
         self.asset_handle_franka = self.gym.load_asset(self.sim, asset_root, self.franka_urdf,
@@ -273,16 +242,6 @@ class GraspEvaluator:
         self.num_directions = len(all_directions)
         self.all_directions = all_directions[self.oris[0]:self.oris[1] + 1]
 
-    """def get_height_of_objects(self, tet_file):
-        """"""Return the height of the soft object.""""""
-        mesh_lines = list(open(tet_file, "r"))
-        mesh_lines = [line.strip('\n') for line in mesh_lines]
-        zs = []
-        for ml in mesh_lines:
-            sp = ml.split(" ")
-            if sp[0] == 'v':
-                zs.append(float(sp[3]))
-        return 2 * abs(min(zs))"""
 
     def setup_scene(self):
         """Create environments, Franka actor, and object actor."""
@@ -296,14 +255,13 @@ class GraspEvaluator:
         #self.env_spread = self.grasp_candidate_poses
         if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
             self.env_spread = self.all_directions
+        
+        else:
+        # Create default grasp poses (x,y,z + quaternion)
+            self.env_spread = [np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.0])]
 
         for i, test_grasp_pose in enumerate(self.env_spread):
-            """if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
-                test_grasp_pose = self.grasp_candidate_poses[0]
-                direction = np.array(
-                    [self.all_directions[i][1], self.all_directions[i][2],
-                     self.all_directions[i][0]])  # Read direction as y-up convention
-            else:"""
+
             direction = np.array(
                 [self.all_directions[0][1], self.all_directions[0][2],
                     self.all_directions[0][0]])  # Read direction as y-up convention
@@ -346,8 +304,7 @@ class GraspEvaluator:
             pose_correction = ang_acc_transform.inv() * pose_transform
             pose_correction_euler = pose_correction.as_euler('xyz')
 
-            # Correct for translation offset to match grasp. Allows for one joint to
-            # be solely responsible for generating angular acceleration
+            
             q0 = np.array([0., 0., -0.112])
             q0_ = ang_acc_transform.apply(q0)
             disp_offset = q0 - q0_
@@ -366,30 +323,14 @@ class GraspEvaluator:
             self.gym.set_actor_dof_states(env_handle, franka_handle,
                                           curr_joint_positions, gymapi.STATE_ALL)
 
-            # Create soft object
-            #tet_file_name = os.path.join(self.object_path, self.object_name + ".tet")
-            #height_of_object = self.get_height_of_objects(tet_file_name)
+           
             pose = gymapi.Transform()
             pose.r = self.neg_rot_x_transform.r
 
             pose.p = self.from_trimesh_transform.transform_vector(
                 gymapi.Vec3(0.0, 0.0, 0.0))
 
-            #object_height_buffer = 0.001
-            #if self.mode == "squeeze_no_gravity":
-            #    object_height_buffer = 0.0
-            #pose.p.y += self.cfg['sim_params']['platform_height'] + object_height_buffer
-
-            #object_handle = self.gym.create_actor(env_handle, self.asset_handle_object, pose,
-            #                                      f"object_{i}", collision_group,
-            #                                      collision_filter)
-            #object_handles.append(object_handle)
-
-            # Create platform
-            #height_of_platform = 0.005
-            #pose.p.y -= (height_of_platform + object_height_buffer +
-            #             + 0.5 * height_of_object)
-
+    
             if self.mode == "squeeze_no_gravity":
                 pose.p.y = 0.5
 
