@@ -293,20 +293,20 @@ class GraspEvaluator:
         self.hand_origins = []
 
         
-        self.env_spread = self.grasp_candidate_poses
+        #self.env_spread = self.grasp_candidate_poses
         if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
             self.env_spread = self.all_directions
 
         for i, test_grasp_pose in enumerate(self.env_spread):
-            if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
+            """if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
                 test_grasp_pose = self.grasp_candidate_poses[0]
                 direction = np.array(
                     [self.all_directions[i][1], self.all_directions[i][2],
                      self.all_directions[i][0]])  # Read direction as y-up convention
-            else:
-                direction = np.array(
-                    [self.all_directions[0][1], self.all_directions[0][2],
-                     self.all_directions[0][0]])  # Read direction as y-up convention
+            else:"""
+            direction = np.array(
+                [self.all_directions[0][1], self.all_directions[0][2],
+                    self.all_directions[0][0]])  # Read direction as y-up convention
 
             # Create environment
             env_handle = self.gym.create_env(
