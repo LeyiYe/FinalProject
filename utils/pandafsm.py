@@ -13,8 +13,7 @@ class PandaFsm:
     """FSM for control of Panda hand without object interaction."""
 
     def __init__(self, cfg, gym_handle, sim_handle, env_handles, franka_handle,
-                 grasp_transform, env_id, hand_origin, viewer,
-                 envs_per_row, env_dim, mode):
+                 grasp_transform, env_id, hand_origin, viewer, env_dim, mode):
         """Initialize simplified FSM for arm control."""
         self.mode = mode
         self.started = False
@@ -32,7 +31,7 @@ class PandaFsm:
         # Sim params
         self.sim_params = gymapi.SimParams()
         self.sim_params = self.gym_handle.get_sim_params(self.sim_handle)
-        self.envs_per_row = envs_per_row
+        #self.envs_per_row = envs_per_row
         self.env_dim = env_dim
         self.env_x_offset = 2. * self.env_dim * (self.env_id % self.envs_per_row)
         self.env_z_offset = 2. * self.env_dim * int(self.env_id / self.envs_per_row)
