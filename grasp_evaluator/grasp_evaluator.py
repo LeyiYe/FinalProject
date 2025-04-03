@@ -405,8 +405,8 @@ class GraspEvaluator:
                         panda_fsms[i].state = "done"
                         panda_fsms[i].timed_out = True
 
-            for i in range(len(self.env_handles)):
-                panda_fsms[i].update_previous_particle_state_tensor()
+            #for i in range(len(self.env_handles)):
+             #   panda_fsms[i].update_previous_particle_state_tensor()
 
             all_done = all(panda_fsms[i].state == 'done'
                            for i in range(len(self.env_handles)))

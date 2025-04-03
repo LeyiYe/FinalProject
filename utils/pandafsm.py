@@ -91,6 +91,13 @@ class PandaFsm:
         self.gym_handle.set_actor_dof_properties(
             self.env_handle, self.franka_handle, dof_props)
 
+    def update_previous_particle_state_tensor(self):
+        """Save copy of previous timestep's particle state tensor."""
+        if self.particle_state_tensor is not None:
+            self.previous_particle_state_tensor = np.copy(
+                self.particle_state_tensor.numpy())
+
+
     def save_full_state(self):
         """Save current arm state."""
         self.saved_franka_state = np.copy(
