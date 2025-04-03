@@ -10,7 +10,7 @@ tags:
 
 dir:
   assets_dir: 'examples'
-  franka_urdf: 'franka_description/robots/franka_panda_fem_simple_v4_with_arm.urdf'
+  franka_urdf: 'config/franka_description/robots/franka_panda_fem_simple_v4_with_arm.urdf'
   results_dir: 'results'
 
 franka:
