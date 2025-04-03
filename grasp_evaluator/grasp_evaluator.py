@@ -373,7 +373,7 @@ class GraspEvaluator:
                                           sim_handle=self.sim,
                                           env_handles=self.env_handles,
                                           franka_handle=self.franka_handles[i],
-                                          platform_handle=None,
+                                          #platform_handle=None,
                                           #object_cof=self.sim_params.flex.dynamic_friction,
                                           grasp_transform=grasp_transform,
                                           obj_name=None,
