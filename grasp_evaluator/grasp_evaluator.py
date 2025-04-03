@@ -82,11 +82,11 @@ class GraspEvaluator:
 
     def init_results_folder(self):
         """Create folder where results are saved. Returns whether existing results will be kept."""
-        folder_name = self.object_name + "_" + self.cfg['tags']['results_storage_tag']
-        object_file_name = self.object_name + "_" + self.density + "_" + self.youngs + "_" + \
-            self.poissons + "_" + self.mode + "_tag" + self.tag + "_results.h5"
-        self.h5_file_path = os.path.join(
-            self.results_dir, folder_name, self.youngs, object_file_name)
+        #folder_name = self.object_name + "_" + self.cfg['tags']['results_storage_tag']
+        #object_file_name = self.object_name + "_" + self.density + "_" + self.youngs + "_" + \
+        #    self.poissons + "_" + self.mode + "_tag" + self.tag + "_results.h5"
+        #self.h5_file_path = os.path.join(
+        #    self.results_dir, folder_name, self.youngs, object_file_name)
 
         if os.path.exists(self.h5_file_path) and not self.cfg['replace_existing_results']:
             existing_h5 = h5py.File(self.h5_file_path, 'r')
@@ -131,12 +131,12 @@ class GraspEvaluator:
 
     def get_grasp_candidates(self): 
         """Load the candidate grasp of interest."""
-        grasp_file_name = self.object_name + "_grasps.h5"
-        f = h5py.File(os.path.realpath(os.path.join(self.object_path, grasp_file_name)), 'r')
-        self.grasp_candidate_poses = f['poses'][self.grasp_ind:self.grasp_ind + 1]
-        self.num_grasp_poses = f['poses'].shape[0]
-        print("Number of total grasp candidates", self.num_grasp_poses)
-        f.close()
+        #grasp_file_name = self.object_name + "_grasps.h5"
+        #f = h5py.File(os.path.realpath(os.path.join(self.object_path, grasp_file_name)), 'r')
+        #self.grasp_candidate_poses = f['poses'][self.grasp_ind:self.grasp_ind + 1]
+        #self.num_grasp_poses = f['poses'].shape[0]
+        #print("Number of total grasp candidates", self.num_grasp_poses)
+        #f.close()
 
     def create_sim(self):
         """Set sim parameters and create a Sim object."""
@@ -190,16 +190,16 @@ class GraspEvaluator:
 
     def set_object_parameters(self, asset_file_object, **kwargs):
         """Write object parameters into URDF file."""
-        try:
-            tree = ET.parse(asset_file_object)
-            root = tree.getroot()
-            for key, value in kwargs.items():
-                for attribute in root.iter(key):
-                    attribute.set('value', str(value))
-            tree.write(asset_file_object)
-            return True
-        except BaseException:
-            return False
+        #try:
+        #    tree = ET.parse(asset_file_object)
+        #    root = tree.getroot()
+        #    for key, value in kwargs.items():
+        #        for attribute in root.iter(key):
+        #            attribute.set('value', str(value))
+        #    tree.write(asset_file_object)
+        #    return True
+        #except BaseException:
+        #    return False
 
     def set_asset_properties(self):
         """Define asset properties."""
@@ -273,8 +273,8 @@ class GraspEvaluator:
         self.num_directions = len(all_directions)
         self.all_directions = all_directions[self.oris[0]:self.oris[1] + 1]
 
-    def get_height_of_objects(self, tet_file):
-        """Return the height of the soft object."""
+    """def get_height_of_objects(self, tet_file):
+        """"""Return the height of the soft object.""""""
         mesh_lines = list(open(tet_file, "r"))
         mesh_lines = [line.strip('\n') for line in mesh_lines]
         zs = []
@@ -282,7 +282,7 @@ class GraspEvaluator:
             sp = ml.split(" ")
             if sp[0] == 'v':
                 zs.append(float(sp[3]))
-        return 2 * abs(min(zs))
+        return 2 * abs(min(zs))"""
 
     def setup_scene(self):
         """Create environments, Franka actor, and object actor."""
@@ -375,10 +375,10 @@ class GraspEvaluator:
             pose.p = self.from_trimesh_transform.transform_vector(
                 gymapi.Vec3(0.0, 0.0, 0.0))
 
-            object_height_buffer = 0.001
-            if self.mode == "squeeze_no_gravity":
-                object_height_buffer = 0.0
-            pose.p.y += self.cfg['sim_params']['platform_height'] + object_height_buffer
+            #object_height_buffer = 0.001
+            #if self.mode == "squeeze_no_gravity":
+            #    object_height_buffer = 0.0
+            #pose.p.y += self.cfg['sim_params']['platform_height'] + object_height_buffer
 
             #object_handle = self.gym.create_actor(env_handle, self.asset_handle_object, pose,
             #                                      f"object_{i}", collision_group,
@@ -433,7 +433,7 @@ class GraspEvaluator:
                                           env_handles=self.env_handles,
                                           franka_handle=self.franka_handles[i],
                                           platform_handle=None,
-                                          object_cof=self.sim_params.flex.dynamic_friction,
+                                          #object_cof=self.sim_params.flex.dynamic_friction,
                                           grasp_transform=grasp_transform,
                                           obj_name=None,
                                           env_id=i,
