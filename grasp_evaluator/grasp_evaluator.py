@@ -376,7 +376,7 @@ class GraspEvaluator:
                                           #platform_handle=None,
                                           #object_cof=self.sim_params.flex.dynamic_friction,
                                           grasp_transform=grasp_transform,
-                                          obj_name=None,
+                                          #obj_name=None,
                                           env_id=i,
                                           hand_origin=self.hand_origins[i],
                                           viewer=self.viewer,
