@@ -17,7 +17,7 @@
 # OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
-"""GraspEvaluator class to et up and run grasp evaluations."""
+"""GraspEvaluator class to set up and run grasp evaluations."""
 
 import h5py
 import numpy as np
@@ -45,12 +45,12 @@ class GraspEvaluator:
 
 
         # Soft object material parameters
-        self.object_name = object_name.lower()
+        #self.object_name = object_name.lower()
         self.grasp_ind = grasp_ind
         self.oris = oris  # Array of [ori_start, ori_end]
-        self.density = density
-        self.youngs = youngs
-        self.poissons = poissons
+        #self.density = density
+        #self.youngs = youngs
+        #self.poissons = poissons
         self.friction = float(friction)
         self.mode = mode.lower()
 
@@ -58,14 +58,16 @@ class GraspEvaluator:
         self.assets_dir = os.path.abspath(self.cfg['dir']['assets_dir'])
         self.franka_urdf = os.path.abspath(self.cfg['dir']['franka_urdf'])
         self.results_dir = os.path.abspath(self.cfg['dir']['results_dir'])
-        self.object_path = os.path.join(self.assets_dir, self.object_name)
+        #self.object_path = os.path.join(self.assets_dir, self.object_name)
         self.tag = tag
 
         # Load candidate grasp and initialize results folder
-        self.get_grasp_candidates()
-        self.data_exists = self.init_results_folder()
-        if not self.cfg['replace_existing_results'] and self.data_exists:
-            return
+        #self.get_grasp_candidates()
+        #self.data_exists = self.init_results_folder()
+
+        self.data_exists = False #Added
+        #if not self.cfg['replace_existing_results'] and self.data_exists:
+        #    return
 
         # Create and set up simulation environment
         self.viewer = None
@@ -127,7 +129,7 @@ class GraspEvaluator:
                 print("Existing data is imperfect, rerunning")
         return False
 
-    def get_grasp_candidates(self):
+    def get_grasp_candidates(self): 
         """Load the candidate grasp of interest."""
         grasp_file_name = self.object_name + "_grasps.h5"
         f = h5py.File(os.path.realpath(os.path.join(self.object_path, grasp_file_name)), 'r')
@@ -212,12 +214,13 @@ class GraspEvaluator:
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_VEL
 
         # Load Franka and object assets
-        asset_file_platform = os.path.join(self.assets_dir, 'platform.urdf')
-        asset_file_object = os.path.join(self.object_path, "soft_body.urdf")
+        #asset_file_platform = os.path.join(self.assets_dir, 'platform.urdf')
+        #asset_file_object = os.path.join(self.object_path, "soft_body.urdf")
 
         # Set object parameters for object material properties
-        set_parameter_result = False
-        fail_counter = 0
+        #set_parameter_result = False
+        #fail_counter = 0
+        """
         while set_parameter_result is False and fail_counter < 10:
             try:
                 set_parameter_result = self.set_object_parameters(
@@ -228,7 +231,7 @@ class GraspEvaluator:
             except BaseException:
                 fail_counter += 1
                 pass
-
+"""
         # Set asset options
         asset_options.fix_base_link = True
         self.asset_handle_franka = self.gym.load_asset(self.sim, asset_root, self.franka_urdf,
@@ -236,12 +239,12 @@ class GraspEvaluator:
 
         asset_options.fix_base_link = False
         asset_options.min_particle_mass = 1e-20
-        self.asset_handle_object = self.gym.load_asset(self.sim, asset_root, asset_file_object,
-                                                       asset_options)
+        #self.asset_handle_object = self.gym.load_asset(self.sim, asset_root, asset_file_object,
+        #                                               asset_options)
 
         asset_options.fix_base_link = True
-        self.asset_handle_platform = self.gym.load_asset(self.sim, asset_root,
-                                                         asset_file_platform, asset_options)
+        #self.asset_handle_platform = self.gym.load_asset(self.sim, asset_root,
+        #                                                 asset_file_platform, asset_options)
 
     def set_camera(self):
         """Define camera properties and create Viewer object."""
@@ -285,10 +288,11 @@ class GraspEvaluator:
         """Create environments, Franka actor, and object actor."""
         self.env_handles = []
         self.franka_handles = []
-        object_handles = []
-        self.platform_handles = []
+        #object_handles = []
+        #self.platform_handles = []
         self.hand_origins = []
 
+        
         self.env_spread = self.grasp_candidate_poses
         if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
             self.env_spread = self.all_directions
@@ -363,8 +367,8 @@ class GraspEvaluator:
                                           curr_joint_positions, gymapi.STATE_ALL)
 
             # Create soft object
-            tet_file_name = os.path.join(self.object_path, self.object_name + ".tet")
-            height_of_object = self.get_height_of_objects(tet_file_name)
+            #tet_file_name = os.path.join(self.object_path, self.object_name + ".tet")
+            #height_of_object = self.get_height_of_objects(tet_file_name)
             pose = gymapi.Transform()
             pose.r = self.neg_rot_x_transform.r
 
@@ -376,23 +380,23 @@ class GraspEvaluator:
                 object_height_buffer = 0.0
             pose.p.y += self.cfg['sim_params']['platform_height'] + object_height_buffer
 
-            object_handle = self.gym.create_actor(env_handle, self.asset_handle_object, pose,
-                                                  f"object_{i}", collision_group,
-                                                  collision_filter)
-            object_handles.append(object_handle)
+            #object_handle = self.gym.create_actor(env_handle, self.asset_handle_object, pose,
+            #                                      f"object_{i}", collision_group,
+            #                                      collision_filter)
+            #object_handles.append(object_handle)
 
             # Create platform
-            height_of_platform = 0.005
-            pose.p.y -= (height_of_platform + object_height_buffer +
-                         + 0.5 * height_of_object)
+            #height_of_platform = 0.005
+            #pose.p.y -= (height_of_platform + object_height_buffer +
+            #             + 0.5 * height_of_object)
 
             if self.mode == "squeeze_no_gravity":
                 pose.p.y = 0.5
 
-            platform_handle = self.gym.create_actor(env_handle, self.asset_handle_platform,
-                                                    pose, f"platform_{i}",
-                                                    collision_group, 1)
-            self.platform_handles.append(platform_handle)
+            #platform_handle = self.gym.create_actor(env_handle, self.asset_handle_platform,
+            #                                        pose, f"platform_{i}",
+            #                                        collision_group, 1)
+            #self.platform_handles.append(platform_handle)
 
             self.gym.set_rigid_body_color(env_handle, franka_handle, 0,
                                           gymapi.MESH_VISUAL_AND_COLLISION,
@@ -404,12 +408,14 @@ class GraspEvaluator:
         directions = self.all_directions
 
         for i in range(len(self.env_handles)):
-            if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
-                test_grasp_pose = self.grasp_candidate_poses[0]
-                directions = self.all_directions[i:i + 1]
+            #if self.mode.lower() in ["reorient", "lin_acc", "ang_acc"]:
+            #    test_grasp_pose = self.grasp_candidate_poses[0]
+            #    directions = self.all_directions[i:i + 1]
 
-            else:
-                test_grasp_pose = self.env_spread[i]
+            #else:
+            #    test_grasp_pose = self.env_spread[i]
+
+            test_grasp_pose = self.env_spread[i] #Added
 
             pure_grasp_transform = gymapi.Transform()
             pure_grasp_transform.r = gymapi.Quat(test_grasp_pose[4],
@@ -426,18 +432,18 @@ class GraspEvaluator:
                                           sim_handle=self.sim,
                                           env_handles=self.env_handles,
                                           franka_handle=self.franka_handles[i],
-                                          platform_handle=self.platform_handles[i],
+                                          platform_handle=None,
                                           object_cof=self.sim_params.flex.dynamic_friction,
                                           grasp_transform=grasp_transform,
-                                          obj_name=self.object_name,
+                                          obj_name=None,
                                           env_id=i,
                                           hand_origin=self.hand_origins[i],
                                           viewer=self.viewer,
-                                          envs_per_row=self.envs_per_row,
-                                          env_dim=self.env_dim,
-                                          youngs=self.youngs,
-                                          density=self.density,
-                                          directions=np.asarray(directions),
+                                          #envs_per_row=self.envs_per_row,
+                                          #env_dim=self.env_dim,
+                                          #youngs=self.youngs,
+                                          #density=self.density,
+                                          #directions=np.asarray(directions),
                                           mode=self.mode.lower())
             panda_fsms.append(panda_fsm)
 
