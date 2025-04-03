@@ -37,8 +37,8 @@ from utils import metrics_features_utils
 class GraspEvaluator:
     """Simulate selected object, grasp, material params, and evaluation mode."""
 
-    def __init__(self, object_name, grasp_ind, oris, density,
-                 youngs, poissons, friction, mode, tag=''):
+    def __init__(self, grasp_ind, oris, 
+                 friction, mode, tag=''):
         """Initialize parameters for simulation for the specific grasp and material properties."""
         with open("config.yaml") as yamlfile:
             self.cfg = yaml.safe_load(yamlfile)
