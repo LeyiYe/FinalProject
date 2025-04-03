@@ -433,10 +433,11 @@ class GraspEvaluator:
 
         print("Finished the simulation", timeit.default_timer() - loop_start)
 
-        if self.cfg['write_results']:
+        """if self.cfg['write_results']:
             print("Writing to", self.h5_file_path)
             metrics_features_utils.write_metrics_to_h5(self.mode, self.grasp_ind, self.oris,
                                                        self.num_grasp_poses, self.num_directions,
                                                        self.h5_file_path, panda_fsms,
                                                        self.cfg['squeeze_no_gravity']['num_dp'])
+            """
         return
