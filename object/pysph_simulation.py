@@ -64,7 +64,7 @@ class DeformableObjectSimulation:
             x0=x0, y0=y0, z0=z0
         )
         
-        # Setup solver
+        # Setup solver with workaround for parallel manager
         integrator = EPECIntegrator(fluid=WCSPHStep())
         self.solver = Solver(
             dim=3,
@@ -72,6 +72,12 @@ class DeformableObjectSimulation:
             dt=0.0001,
             tf=10.0
         )
+        
+        # Workaround for parallel manager issue
+        if not hasattr(self.solver, 'pm'):
+            # Create a dummy parallel manager attribute
+            self.solver.pm = type('DummyParallelManager', (), {})()
+            self.solver.pm.comm = type('DummyComm', (), {'size':1})()
         
         # Create NNPS object
         nnps = LinkedListNNPS(dim=3, particles=[self.particles])
