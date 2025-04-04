@@ -24,6 +24,12 @@ def main():
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
     asset_options.flip_visual_attachments = True
+
+    asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX  # Helps with mesh loading
+    asset_options.override_com = True  # Bypass some mesh issues
+    asset_options.override_inertia = True
+    asset_options.vhacd_enabled = True  # For collision meshes
+
     asset_options.disable_gravity = False
     asset_options.collapse_fixed_joints = False
     asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
@@ -49,11 +55,20 @@ def main():
     dof_props["damping"] = np.array([200.0] * 9)
     gym.set_actor_dof_properties(env, franka_handle, dof_props)
 
+    num_dofs = gym.get_asset_dof_count(franka_asset)
+    print(f"Asset has {num_dofs} DOFs")
+
     # Set initial joint positions
-    default_dof_pos = np.zeros(9)
-    default_dof_pos[7] = 0.04  # Close fingers
-    default_dof_pos[8] = 0.04
-    gym.set_actor_dof_states(env, franka_handle, default_dof_pos, gymapi.STATE_POS)
+    dof_props = gym.get_actor_dof_properties(env, franka_handle)
+    if num_dofs == 7:  # Only arm
+        dof_props["stiffness"] = np.array([1000.0] * 7)
+        dof_props["damping"] = np.array([200.0] * 7)
+    elif num_dofs == 9:  # Arm + hand
+        dof_props["stiffness"] = np.array([1000.0] * 9)
+        dof_props["damping"] = np.array([200.0] * 9)
+
+
+    gym.set_actor_dof_states(env, franka_handle, dof_props, gymapi.STATE_POS)
 
     # Camera setup
     cam_pos = gymapi.Vec3(2, 2, 2)
