@@ -8,8 +8,10 @@ def main():
     sim_params = gymapi.SimParams()
     sim_params.up_axis = gymapi.UP_AXIS_Z  # Important for Franka
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
-    sim_params.use_gpu_pipeline = True  # Recommended for better performance
-    
+    sim_params.use_gpu_pipeline = False  # Recommended for better performance
+    sim_params.physx.num_threads = 4  # Explicit CPU threads
+    sim_params.physx.use_gpu = False  # Force CPU PhysX
+
     sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
     
     # Configure viewer
@@ -73,7 +75,7 @@ def main():
     dof_state = np.zeros(gym.get_actor_dof_count(env, franka_handle), dtype=gymapi.DofState.dtype)
     dof_state["pos"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.04]  # 7 arm joints + 2 fingers
     gym.set_actor_dof_states(env, franka_handle, dof_state, gymapi.STATE_POS)
-    
+
 
     # Camera setup
     cam_pos = gymapi.Vec3(2, 2, 2)
