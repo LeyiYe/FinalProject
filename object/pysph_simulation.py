@@ -42,15 +42,20 @@ class DeformableObjectSimulation:
         ax = np.zeros_like(x)  # acceleration x
         ay = np.zeros_like(x)  # acceleration y
         az = np.zeros_like(x)  # acceleration z
+        arho = np.zeros_like(x)  # density rate (required by ContinuityEquation)
+        au = np.zeros_like(x)  # velocity rate x
+        av = np.zeros_like(x)  # velocity rate y
+        aw = np.zeros_like(x)  # velocity rate z
         
-        # Create particle array
+        # Create particle array with ALL required properties
         self.particles = get_particle_array(
             name='fluid',
             x=x, y=y, z=z,
             m=m, h=h, rho=rho,
             p=p, cs=cs,
             u=u, v=v, w=w,
-            ax=ax, ay=ay, az=az
+            ax=ax, ay=ay, az=az,
+            arho=arho, au=au, av=av, aw=aw
         )
         
         # Setup equations
@@ -86,13 +91,16 @@ class DeformableObjectSimulation:
         accel_eval.compute(self.time, self.dt)
         
         # Simple Euler integration
-        self.particles.u[:] += self.particles.ax[:] * self.dt
-        self.particles.v[:] += self.particles.ay[:] * self.dt
-        self.particles.w[:] += self.particles.az[:] * self.dt
+        self.particles.u[:] += self.particles.au[:] * self.dt
+        self.particles.v[:] += self.particles.av[:] * self.dt
+        self.particles.w[:] += self.particles.aw[:] * self.dt
         
         self.particles.x[:] += self.particles.u[:] * self.dt
         self.particles.y[:] += self.particles.v[:] * self.dt
         self.particles.z[:] += self.particles.w[:] * self.dt
+        
+        # Update density
+        self.particles.rho[:] += self.particles.arho[:] * self.dt
         
         # Update NNPS
         self.nnps.update()
