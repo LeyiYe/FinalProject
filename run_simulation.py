@@ -28,8 +28,9 @@ class IsaacGymVisualizer:
         sim_params.flex.relaxation = 0.8
         sim_params.flex.warm_start = 0.5
         
-        # Enable GPU pipeline for FleX
+        # Important: Enable both GPU pipeline and FleX
         sim_params.use_gpu_pipeline = True
+        sim_params.use_flex = True  # Explicitly enable FleX
         
         # Create FleX simulation
         self.sim = self.gym.create_sim(0, 0, gymapi.SIM_FLEX, sim_params)
@@ -40,7 +41,7 @@ class IsaacGymVisualizer:
             raise RuntimeError("Failed to create viewer")
         
         # Create environment
-        env_spacing = 1.0
+        env_spacing = 1.5  # Increased spacing for better visibility
         self.env = self.gym.create_env(
             self.sim,
             gymapi.Vec3(-env_spacing, -env_spacing, -env_spacing),
@@ -48,7 +49,7 @@ class IsaacGymVisualizer:
             1
         )
         
-        # Load hand asset with FleX settings
+        # Load hand asset
         self._load_hand()
         
         # Setup particles with FleX properties
@@ -58,22 +59,19 @@ class IsaacGymVisualizer:
         self._setup_camera()
     
     def _load_hand(self):
-        """Load the Panda hand asset with FleX settings"""
+        """Load the Panda hand asset"""
         asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/common/"
         asset_file = "hand.urdf"
         
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
-        asset_options.disable_gravity = True
+        asset_options.disable_gravity = False  # Let gravity affect the hand
         asset_options.flip_visual_attachments = True
         asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
         
-        # FleX-specific hand settings
-        asset_options.flex.disable_gravity = True
-        asset_options.flex.shape_collision_margin = 0.01
-        asset_options.flex.dynamic_friction = 0.5
-        asset_options.flex.static_friction = 0.5
-
+        # Enable collision for the hand
+        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
+        
         hand_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
 
         # Spawn Hand
@@ -91,6 +89,14 @@ class IsaacGymVisualizer:
         
         # Set initial finger positions
         self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [0.02, 0.02])
+        
+        # Enable FleX collision for the hand
+        if hasattr(self.gym, 'set_actor_flex_collision_shape_properties'):
+            flex_props = gymapi.FlexCollisionShapeProperties()
+            flex_props.thickness = 0.01
+            flex_props.restitution = 0.5
+            flex_props.friction = 0.5
+            self.gym.set_actor_flex_collision_shape_properties(self.env, self.hand_handle, 0, flex_props)
     
     def _setup_particles(self):
         """Create FleX particle representation"""
@@ -98,11 +104,11 @@ class IsaacGymVisualizer:
         
         # FleX particle asset options
         asset_options = gymapi.AssetOptions()
-        asset_options.disable_gravity = True
-        asset_options.flex.disable_gravity = True
+        asset_options.disable_gravity = False  # Let gravity affect particles
+        asset_options.flex.disable_gravity = False
         asset_options.flex.collision_distance = particle_radius * 0.5
-        asset_options.flex.particle_friction = 0.1
-        asset_options.flex.particle_damping = 0.01
+        asset_options.flex.particle_friction = 0.5  # Increased friction for better interaction
+        asset_options.flex.particle_damping = 0.1
         asset_options.flex.particle_adhesion = 0.0
         
         sphere_asset = self.gym.create_sphere(self.sim, particle_radius, asset_options)
@@ -114,7 +120,7 @@ class IsaacGymVisualizer:
             pose.p = gymapi.Vec3(
                 initial_state['x'][i],
                 initial_state['y'][i],
-                initial_state['z'][i] + 1.0
+                initial_state['z'][i] + 1.0  # Start above the hand
             )
             
             actor = self.gym.create_actor(
@@ -128,7 +134,7 @@ class IsaacGymVisualizer:
             # Set FleX particle properties if available
             if hasattr(self.gym, 'get_actor_flex_particle_properties'):
                 props = self.gym.get_actor_flex_particle_properties(self.env, actor)
-                props['mass'] = 0.1  # Adjust mass as needed
+                props['mass'] = 0.1
                 props['radius'] = particle_radius
                 self.gym.set_actor_flex_particle_properties(self.env, actor, props)
             
@@ -140,8 +146,8 @@ class IsaacGymVisualizer:
     
     def _setup_camera(self):
         """Configure the camera view"""
-        cam_pos = gymapi.Vec3(0.5, 0.5, 1.5)
-        cam_target = gymapi.Vec3(0, 0, 1.3)
+        cam_pos = gymapi.Vec3(1.0, 1.0, 1.5)  # Adjusted for better view
+        cam_target = gymapi.Vec3(0, 0, 1.0)
         self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
     
     def update_particles(self):
