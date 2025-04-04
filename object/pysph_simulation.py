@@ -42,7 +42,15 @@ class DeformableObjectSimulation:
         u = np.zeros_like(x)  # velocity x
         v = np.zeros_like(x)  # velocity y
         w = np.zeros_like(x)  # velocity z
-        vhat = np.zeros_like(x)  # XSPH corrected velocity magnitude
+        
+        # WCSPHStep required initial values
+        rho0 = rho.copy()  # initial density
+        u0 = u.copy()  # initial velocity x
+        v0 = v.copy()  # initial velocity y
+        w0 = w.copy()  # initial velocity z
+        x0 = x.copy()  # initial position x
+        y0 = y.copy()  # initial position y
+        z0 = z.copy()  # initial position z
         
         # Create particle array with all required properties
         self.particles = get_particle_array(
@@ -52,10 +60,11 @@ class DeformableObjectSimulation:
             arho=arho, p=p, cs=cs,
             ax=ax, ay=ay, az=az,
             u=u, v=v, w=w,
-            vhat=vhat
+            rho0=rho0, u0=u0, v0=v0, w0=w0,
+            x0=x0, y0=y0, z0=z0
         )
         
-        # Setup solver
+        # Setup solver with WCSPH integrator
         integrator = EPECIntegrator(fluid=WCSPHStep())
         self.solver = Solver(
             dim=3,
@@ -67,7 +76,7 @@ class DeformableObjectSimulation:
         # Create NNPS object
         nnps = LinkedListNNPS(dim=3, particles=[self.particles])
         
-        # Setup equations with XSPH correction (eps=0.5 as in documentation)
+        # Setup equations with XSPH correction
         equations = [
             Group(
                 equations=[
@@ -90,8 +99,7 @@ class DeformableObjectSimulation:
             'z': self.particles.z.copy(),
             'u': self.particles.u.copy(),
             'v': self.particles.v.copy(),
-            'w': self.particles.w.copy(),
-            'vhat': np.sqrt(self.particles.u**2 + self.particles.v**2 + self.particles.w**2)
+            'w': self.particles.w.copy()
         }
     
     def get_initial_state(self):
@@ -102,8 +110,7 @@ class DeformableObjectSimulation:
             'z': self.particles.z.copy(),
             'u': self.particles.u.copy(),
             'v': self.particles.v.copy(),
-            'w': self.particles.w.copy(),
-            'vhat': np.zeros_like(self.particles.x)
+            'w': self.particles.w.copy()
         }
 
 if __name__ == "__main__":
@@ -114,4 +121,3 @@ if __name__ == "__main__":
     state = sim.step()
     print(f"After one step - first particle position: {state['x'][0]:.3f}, {state['y'][0]:.3f}, {state['z'][0]:.3f}")
     print(f"Velocity: {state['u'][0]:.3f}, {state['v'][0]:.3f}, {state['w'][0]:.3f}")
-    print(f"XSPH corrected velocity magnitude: {state['vhat'][0]:.3f}")
