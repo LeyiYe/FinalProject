@@ -14,6 +14,7 @@ class DeformableObjectSimulation:
         self.solver = None
         self.particles = None
         self.setup_simulation()
+        self.acceleration_eval = None
         
     def setup_simulation(self):
         """Initialize a 3D deformable rectangle using SPH"""
@@ -43,15 +44,6 @@ class DeformableObjectSimulation:
         v = np.zeros_like(x)  # velocity y
         w = np.zeros_like(x)  # velocity z
         
-        # WCSPHStep required initial values
-        rho0 = rho.copy()
-        u0 = u.copy()
-        v0 = v.copy()
-        w0 = w.copy()
-        x0 = x.copy()
-        y0 = y.copy()
-        z0 = z.copy()
-        
         # Create particle array
         self.particles = get_particle_array(
             name='fluid',
@@ -59,29 +51,8 @@ class DeformableObjectSimulation:
             m=m, h=h, rho=rho,
             arho=arho, p=p, cs=cs,
             ax=ax, ay=ay, az=az,
-            u=u, v=v, w=w,
-            rho0=rho0, u0=u0, v0=v0, w0=w0,
-            x0=x0, y0=y0, z0=z0
+            u=u, v=v, w=w
         )
-        
-        # Setup solver with workaround for parallel manager
-        integrator = EPECIntegrator(fluid=WCSPHStep())
-        self.solver = Solver(
-            dim=3,
-            integrator=integrator,
-            dt=0.0001,
-            tf=10.0
-        )
-        
-        # Create dummy parallel manager attributes if they don't exist
-        if not hasattr(self.solver, 'pm'):
-            class DummyPM:
-                def __init__(self):
-                    self.comm = type('DummyComm', (), {'size':1})()
-            self.solver.pm = DummyPM()
-        
-        # Create NNPS object
-        nnps = LinkedListNNPS(dim=3, particles=[self.particles])
         
         # Setup equations
         equations = [
@@ -94,20 +65,35 @@ class DeformableObjectSimulation:
             )
         ]
         
-        # Initialize solver
-        self.solver.setup(particles=[self.particles], equations=equations, nnps=nnps)
+        # Create NNPS object
+        nnps = LinkedListNNPS(dim=3, particles=[self.particles])
+        
+        # Manually create acceleration evaluation
+        from pysph.sph.acceleration_eval import AccelerationEval
+        kernel = None  # Will use default kernel
+        self.acceleration_eval = AccelerationEval([self.particles], equations, kernel=kernel)
+        
+        # Setup integrator
+        self.integrator = EPECIntegrator(fluid=WCSPHStep())
+        self.integrator.set_nnps(nnps)
+        self.integrator.set_equations(equations)
+        self.integrator.setup([self.particles])
+        
+        # Initialize solver-like functionality
+        self.dt = 0.0001
         self.current_time = 0.0
     
     def step(self):
-        """Advance the simulation by one timestep"""
-        # Version-compatible solve call
-        if hasattr(self.solver, 'solve_one_step'):
-            self.solver.solve_one_step(self.solver.dt)
-        else:
-            # Fallback for older versions
-            self.solver.step(1)
+        """Manual implementation of time stepping"""
+        # Compute accelerations
+        self.acceleration_eval.compute(self.current_time, self.dt)
         
-        self.current_time += self.solver.dt
+        # Integrate
+        self.integrator.step(self.current_time, self.dt)
+        
+        # Update time
+        self.current_time += self.dt
+        
         return {
             'x': self.particles.x.copy(),
             'y': self.particles.y.copy(),
