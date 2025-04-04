@@ -6,11 +6,11 @@ def main():
     # Initialize
     gym = gymapi.acquire_gym()
     sim_params = gymapi.SimParams()
-    sim_params.up_axis = gymapi.UP_AXIS_Z  # Important for Franka
+    sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
-    sim_params.use_gpu_pipeline = False  # Recommended for better performance
-    sim_params.physx.num_threads = 4  # Explicit CPU threads
-    sim_params.physx.use_gpu = False  # Force CPU PhysX
+    sim_params.use_gpu_pipeline = False
+    sim_params.physx.num_threads = 4
+    sim_params.physx.use_gpu = False
 
     sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
     
@@ -20,78 +20,65 @@ def main():
         print("Failed to create viewer")
         return
 
-    # Load Franka URDF - PATH MUST BE ABSOLUTE
-    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/panda/"  # FULL PATH to package
-    asset_file = "panda.urdf"  # Relative to asset_root
+    # Load HAND-ONLY URDF
+    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_ros/franka_description"
+    asset_file = "robots/hand.urdf"  # Using hand-only URDF
     asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
+    asset_options.fix_base_link = True  # Critical for hand-only
+    asset_options.disable_gravity = True  # Better for gripper control
     asset_options.flip_visual_attachments = True
+    asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+    asset_options.vhacd_enabled = True
 
-    asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX  # Helps with mesh loading
-    asset_options.override_com = True  # Bypass some mesh issues
-    asset_options.override_inertia = True
-    asset_options.vhacd_enabled = True  # For collision meshes
-
-    asset_options.disable_gravity = False
-    asset_options.collapse_fixed_joints = False
-    asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
-
-    franka_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
+    hand_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 
     # Create env
-    env_spacing = 2.0
+    env_spacing = 1.0
     env = gym.create_env(sim, gymapi.Vec3(-env_spacing, -env_spacing, -env_spacing), 
                          gymapi.Vec3(env_spacing, env_spacing, env_spacing), 1)
 
-    # Spawn Franka
+    # Spawn Hand
     pose = gymapi.Transform()
-    pose.p = gymapi.Vec3(0, 0, 1.0)  # Z-up
-    pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), np.pi)  # Rotate if needed
+    pose.p = gymapi.Vec3(0, 0, 1.5)  # Higher for better visibility
+    hand_handle = gym.create_actor(env, hand_asset, pose, "hand", 0, 0)
 
-    franka_handle = gym.create_actor(env, franka_asset, pose, "franka", 0, 0)
-
-    # Configure DOF properties
-    dof_props = gym.get_actor_dof_properties(env, franka_handle)
+    # Configure ONLY FINGER JOINTS (2 DOFs)
+    dof_props = gym.get_actor_dof_properties(env, hand_handle)
+    print(f"Hand has {len(dof_props['stiffness'])} DOFs")  # Should be 2
+    
     dof_props["driveMode"] = gymapi.DOF_MODE_POS
-    dof_props["stiffness"] = np.array([1000.0] * 9)  # 7 arm joints + 2 fingers
-    dof_props["damping"] = np.array([200.0] * 9)
-    gym.set_actor_dof_properties(env, franka_handle, dof_props)
+    dof_props["stiffness"] = [1000.0, 1000.0]  # Only 2 values needed
+    dof_props["damping"] = [200.0, 200.0]
+    gym.set_actor_dof_properties(env, hand_handle, dof_props)
 
-    num_dofs = gym.get_asset_dof_count(franka_asset)
-    print(f"Asset has {num_dofs} DOFs")
+    # Set initial finger positions (0=open, 0.04=closed)
+    gym.set_actor_dof_position_targets(env, hand_handle, [0.02, 0.02])  # Half-closed
 
-    # Set initial joint positions
-    dof_props = gym.get_actor_dof_properties(env, franka_handle)
-    if num_dofs == 7:  # Only arm
-        dof_props["stiffness"] = np.array([1000.0] * 7)
-        dof_props["damping"] = np.array([200.0] * 7)
-    elif num_dofs == 9:  # Arm + hand
-        dof_props["stiffness"] = np.array([1000.0] * 9)
-        dof_props["damping"] = np.array([200.0] * 9)
-
-
-    gym.set_actor_dof_properties(env, franka_handle, dof_props)
-
-    dof_state = np.zeros(gym.get_actor_dof_count(env, franka_handle), dtype=gymapi.DofState.dtype)
-    dof_state["pos"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.04]  # 7 arm joints + 2 fingers
-    gym.set_actor_dof_states(env, franka_handle, dof_state, gymapi.STATE_POS)
-
-
-    # Camera setup
-    cam_pos = gymapi.Vec3(2, 2, 2)
-    cam_target = gymapi.Vec3(0, 0, 1)
+    # Camera setup focused on gripper
+    cam_pos = gymapi.Vec3(0.5, 0.5, 1.5)  # Closer view
+    cam_target = gymapi.Vec3(0, 0, 1.3)
     gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
 
-    # Simulation loop
+    # Simple grasping sequence
+    step = 0
     while not gym.query_viewer_has_closed(viewer):
-        # Step physics
+        # Animate fingers
+        if step < 30:
+            # Close gradually
+            pos = 0.02 + (0.02 * step/30)
+            gym.set_actor_dof_position_targets(env, hand_handle, [pos, pos])
+        elif 60 < step < 90:
+            # Open gradually
+            pos = 0.04 - (0.02 * (step-60)/30)
+            gym.set_actor_dof_position_targets(env, hand_handle, [pos, pos])
+        
+        # Step simulation
         gym.simulate(sim)
         gym.fetch_results(sim, True)
-        
-        # Update viewer
         gym.step_graphics(sim)
         gym.draw_viewer(viewer, sim, True)
         gym.sync_frame_time(sim)
+        step += 1
 
     gym.destroy_viewer(viewer)
     gym.destroy_sim(sim)
