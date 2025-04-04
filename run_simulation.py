@@ -21,8 +21,8 @@ def main():
         return
 
     # Load HAND-ONLY URDF
-    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_ros/franka_description"
-    asset_file = "robots/hand.urdf"  # Using hand-only URDF
+    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/common/"
+    asset_file = "hand.urdf"  # Using hand-only URDF
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True  # Critical for hand-only
     asset_options.disable_gravity = True  # Better for gripper control
