@@ -19,8 +19,8 @@ def main():
         return
 
     # Load Franka URDF - PATH MUST BE ABSOLUTE
-    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_ros/franka_description"  # FULL PATH to package
-    asset_file = "robots/panda/panda.urdf"  # Relative to asset_root
+    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/panda/"  # FULL PATH to package
+    asset_file = "panda.urdf"  # Relative to asset_root
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
     asset_options.flip_visual_attachments = True
