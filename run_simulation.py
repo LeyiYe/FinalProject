@@ -15,16 +15,24 @@ class IsaacGymVisualizer:
         self.sph_sim = DeformableObjectSimulation()
         
     def setup_simulation(self):
-        """Initialize IsaacGym simulation"""
-        # Simulation parameters
+        """Initialize IsaacGym simulation with FleX"""
+        # FleX simulation parameters
         sim_params = gymapi.SimParams()
         sim_params.up_axis = gymapi.UP_AXIS_Z
         sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
-        sim_params.use_gpu_pipeline = False
-        sim_params.physx.num_threads = 4
-        sim_params.physx.use_gpu = False
-
-        self.sim = self.gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
+        
+        # FleX-specific parameters
+        sim_params.flex.solver_type = 5  # GPU solver
+        sim_params.flex.num_outer_iterations = 4
+        sim_params.flex.num_inner_iterations = 20
+        sim_params.flex.relaxation = 0.8
+        sim_params.flex.warm_start = 0.5
+        
+        # Enable GPU pipeline for FleX
+        sim_params.use_gpu_pipeline = True
+        
+        # Create FleX simulation
+        self.sim = self.gym.create_sim(0, 0, gymapi.SIM_FLEX, sim_params)
         
         # Create viewer
         self.viewer = self.gym.create_viewer(self.sim, gymapi.CameraProperties())
@@ -40,25 +48,31 @@ class IsaacGymVisualizer:
             1
         )
         
-        # Load hand asset
+        # Load hand asset with FleX settings
         self._load_hand()
         
-        # Setup particles
+        # Setup particles with FleX properties
         self._setup_particles()
         
         # Setup camera
         self._setup_camera()
     
     def _load_hand(self):
-        """Load the Panda hand asset"""
+        """Load the Panda hand asset with FleX settings"""
         asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/common/"
         asset_file = "hand.urdf"
+        
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
         asset_options.disable_gravity = True
         asset_options.flip_visual_attachments = True
         asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
-        asset_options.vhacd_enabled = True
+        
+        # FleX-specific hand settings
+        asset_options.flex.disable_gravity = True
+        asset_options.flex.shape_collision_margin = 0.01
+        asset_options.flex.dynamic_friction = 0.5
+        asset_options.flex.static_friction = 0.5
 
         hand_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
 
@@ -79,27 +93,46 @@ class IsaacGymVisualizer:
         self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [0.02, 0.02])
     
     def _setup_particles(self):
-        """Create visual representation of SPH particles"""
+        """Create FleX particle representation"""
         particle_radius = 0.02
         
-        # Create sphere asset for particles
+        # FleX particle asset options
         asset_options = gymapi.AssetOptions()
+        asset_options.disable_gravity = True
+        asset_options.flex.disable_gravity = True
+        asset_options.flex.collision_distance = particle_radius * 0.5
+        asset_options.flex.particle_friction = 0.1
+        asset_options.flex.particle_damping = 0.01
+        asset_options.flex.particle_adhesion = 0.0
+        
         sphere_asset = self.gym.create_sphere(self.sim, particle_radius, asset_options)
         
-        # Get initial particle positions
         initial_state = self.sph_sim.get_initial_state()
         
-        # Create actors for each particle
         for i in range(len(initial_state['x'])):
             pose = gymapi.Transform()
             pose.p = gymapi.Vec3(
                 initial_state['x'][i],
                 initial_state['y'][i],
-                initial_state['z'][i] + 1.0  # Offset to position below hand
+                initial_state['z'][i] + 1.0
             )
-            actor = self.gym.create_actor(self.env, sphere_asset, pose, f"particle_{i}", 0, 0)
             
-            # Alternative color setting method for older versions
+            actor = self.gym.create_actor(
+                self.env, 
+                sphere_asset, 
+                pose, 
+                f"particle_{i}", 
+                0, 0
+            )
+            
+            # Set FleX particle properties if available
+            if hasattr(self.gym, 'get_actor_flex_particle_properties'):
+                props = self.gym.get_actor_flex_particle_properties(self.env, actor)
+                props['mass'] = 0.1  # Adjust mass as needed
+                props['radius'] = particle_radius
+                self.gym.set_actor_flex_particle_properties(self.env, actor, props)
+            
+            # Color setting (if available)
             if hasattr(self.gym, 'set_rigid_body_color'):
                 self.gym.set_rigid_body_color(self.env, actor, 0, gymapi.MeshType(0), gymapi.Vec3(0.2, 0.6, 1.0))
             
