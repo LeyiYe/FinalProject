@@ -68,7 +68,12 @@ def main():
         dof_props["damping"] = np.array([200.0] * 9)
 
 
-    gym.set_actor_dof_states(env, franka_handle, dof_props, gymapi.STATE_POS)
+    gym.set_actor_dof_properties(env, franka_handle, dof_props)
+
+    dof_state = np.zeros(gym.get_actor_dof_count(env, franka_handle), dtype=gymapi.DofState.dtype)
+    dof_state["pos"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.04]  # 7 arm joints + 2 fingers
+    gym.set_actor_dof_states(env, franka_handle, dof_state, gymapi.STATE_POS)
+    
 
     # Camera setup
     cam_pos = gymapi.Vec3(2, 2, 2)
