@@ -8,6 +8,7 @@ from pysph.sph.equation import Group
 from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
 from pysph.sph.wc.basic import TaitEOS
 from pysph.base.nnps import LinkedListNNPS
+from pysph.parallel.parallel_manager import SerialParallelManager
 
 class DeformableObjectSimulation:
     def __init__(self):
@@ -44,15 +45,15 @@ class DeformableObjectSimulation:
         w = np.zeros_like(x)  # velocity z
         
         # WCSPHStep required initial values
-        rho0 = rho.copy()  # initial density
-        u0 = u.copy()  # initial velocity x
-        v0 = v.copy()  # initial velocity y
-        w0 = w.copy()  # initial velocity z
-        x0 = x.copy()  # initial position x
-        y0 = y.copy()  # initial position y
-        z0 = z.copy()  # initial position z
+        rho0 = rho.copy()
+        u0 = u.copy()
+        v0 = v.copy()
+        w0 = w.copy()
+        x0 = x.copy()
+        y0 = y.copy()
+        z0 = z.copy()
         
-        # Create particle array with all required properties
+        # Create particle array
         self.particles = get_particle_array(
             name='fluid',
             x=x, y=y, z=z,
@@ -64,7 +65,7 @@ class DeformableObjectSimulation:
             x0=x0, y0=y0, z0=z0
         )
         
-        # Setup solver with WCSPH integrator
+        # Setup solver with serial parallel manager
         integrator = EPECIntegrator(fluid=WCSPHStep())
         self.solver = Solver(
             dim=3,
@@ -73,10 +74,13 @@ class DeformableObjectSimulation:
             tf=10.0
         )
         
+        # Explicitly set serial parallel manager
+        self.solver.pm = SerialParallelManager()
+        
         # Create NNPS object
         nnps = LinkedListNNPS(dim=3, particles=[self.particles])
         
-        # Setup equations with XSPH correction
+        # Setup equations
         equations = [
             Group(
                 equations=[
@@ -117,7 +121,5 @@ if __name__ == "__main__":
     # Test the simulation
     sim = DeformableObjectSimulation()
     print(f"Initial particle count: {len(sim.particles.x)}")
-    print(f"Particle properties: {sim.particles.properties.keys()}")
     state = sim.step()
     print(f"After one step - first particle position: {state['x'][0]:.3f}, {state['y'][0]:.3f}, {state['z'][0]:.3f}")
-    print(f"Velocity: {state['u'][0]:.3f}, {state['v'][0]:.3f}, {state['w'][0]:.3f}")
