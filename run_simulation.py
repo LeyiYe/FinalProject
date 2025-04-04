@@ -2,7 +2,7 @@
 import isaacgym
 from isaacgym import gymapi
 import numpy as np
-from pysph_simulation import DeformableObjectSimulation
+from object.pysph_simulation import DeformableObjectSimulation
 
 class IsaacGymVisualizer:
     def __init__(self):
