@@ -1,7 +1,5 @@
 import numpy as np
 from pysph.base.utils import get_particle_array
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 # Define the dimensions of the rectangle
 length = 2.0  # along x-axis
@@ -27,32 +25,11 @@ particles = get_particle_array(
     z=positions[:, 2],
 )
 
-# Save the particle positions to a file
-np.savetxt("rectangle_particles.txt", positions)
-
-# Visualize the particles in 3D
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection='3d')
-
-# Scatter plot of particles
-ax.scatter(
-    positions[:, 0],  # x-coordinates
-    positions[:, 1],  # y-coordinates
-    positions[:, 2],  # z-coordinates
-    s=10,             # particle size
-    c='blue',         # color
-    alpha=0.5,        # transparency
-    marker='o'        # marker style
-)
-
-# Labels and title
-ax.set_xlabel('X-axis (Length)')
-ax.set_ylabel('Y-axis (Width)')
-ax.set_zlabel('Z-axis (Height)')
-ax.set_title('3D Rectangle Model (Particle Representation)')
-
-# Equal aspect ratio (to avoid distortion)
-ax.set_box_aspect([length, width, height])
-
-plt.tight_layout()
-plt.show()
+# Save the particle positions to a CSV file with headers
+header = "x,y,z"
+np.savetxt("rectangle_particles.csv", 
+           positions, 
+           delimiter=",", 
+           header=header, 
+           comments="",
+           fmt='%.5f')  # Save with 5 decimal places
