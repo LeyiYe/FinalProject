@@ -81,11 +81,9 @@ class IsaacGymVisualizer:
     def _setup_particles(self):
         """Create visual representation of SPH particles"""
         particle_radius = 0.02
-        particle_color = gymapi.Vec3(0.2, 0.6, 1.0)
         
-        # Create colored sphere asset for particles
+        # Create sphere asset for particles
         asset_options = gymapi.AssetOptions()
-        asset_options.color = particle_color  # Set color directly in asset options
         sphere_asset = self.gym.create_sphere(self.sim, particle_radius, asset_options)
         
         # Get initial particle positions
@@ -100,6 +98,11 @@ class IsaacGymVisualizer:
                 initial_state['z'][i] + 1.0  # Offset to position below hand
             )
             actor = self.gym.create_actor(self.env, sphere_asset, pose, f"particle_{i}", 0, 0)
+            
+            # Alternative color setting method for older versions
+            if hasattr(self.gym, 'set_rigid_body_color'):
+                self.gym.set_rigid_body_color(self.env, actor, 0, gymapi.MeshType(0), gymapi.Vec3(0.2, 0.6, 1.0))
+            
             self.particle_actors.append(actor)
     
     def _setup_camera(self):
