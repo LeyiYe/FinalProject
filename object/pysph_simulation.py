@@ -33,12 +33,16 @@ class DeformableObjectSimulation:
         m = np.ones_like(x) * dx * dx * dx * 1000  # mass (kg)
         h = np.ones_like(x) * dx * 1.2  # smoothing length
         rho = np.ones_like(x) * 1000  # density (kg/m^3)
+        arho = np.zeros_like(x)  # artificial density
+        p = np.zeros_like(x)  # pressure
+        cs = np.ones_like(x) * 10.0  # speed of sound
         
-        # Create particle array
+        # Create particle array with all required properties
         self.particles = get_particle_array(
             name='fluid',
             x=x, y=y, z=z,
-            m=m, h=h, rho=rho
+            m=m, h=h, rho=rho,
+            arho=arho, p=p, cs=cs
         )
         
         # Setup solver
@@ -50,22 +54,22 @@ class DeformableObjectSimulation:
             tf=10.0
         )
         
+        # Create NNPS object
         nnps = LinkedListNNPS(dim=3, particles=[self.particles])
-
+        
         # Setup equations
-        self.solver.setup(
-            [self.particles],
-            [
-                Group(
-                    equations=[
-                        ContinuityEquation(dest='fluid', sources=['fluid']),
-                        TaitEOS(dest='fluid', sources=None, rho0=1000, c0=10.0, gamma=7.0),
-                        XSPHCorrection(dest='fluid', sources=['fluid'])
-                    ]
-                )
-            ],
-            nnps=nnps
-        )
+        equations = [
+            Group(
+                equations=[
+                    ContinuityEquation(dest='fluid', sources=['fluid']),
+                    TaitEOS(dest='fluid', sources=None, rho0=1000, c0=10.0, gamma=7.0),
+                    XSPHCorrection(dest='fluid', sources=['fluid'])
+                ]
+            )
+        ]
+        
+        # Call setup with all required parameters
+        self.solver.setup(particles=[self.particles], equations=equations, nnps=nnps)
     
     def step(self):
         """Advance the simulation by one timestep"""
