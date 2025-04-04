@@ -2,8 +2,6 @@
 import numpy as np
 from pysph.base.utils import get_particle_array
 from pysph.solver.solver import Solver
-from pysph.sph.integrator import EPECIntegrator
-from pysph.sph.integrator_step import WCSPHStep
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
 from pysph.sph.wc.basic import TaitEOS
@@ -11,10 +9,10 @@ from pysph.base.nnps import LinkedListNNPS
 
 class DeformableObjectSimulation:
     def __init__(self):
-        self.solver = None
         self.particles = None
+        self.nnps = None
+        self.equations = None
         self.setup_simulation()
-        self.acceleration_eval = None
         
     def setup_simulation(self):
         """Initialize a 3D deformable rectangle using SPH"""
@@ -34,12 +32,8 @@ class DeformableObjectSimulation:
         m = np.ones_like(x) * dx * dx * dx * 1000  # mass (kg)
         h = np.ones_like(x) * dx * 1.2  # smoothing length
         rho = np.ones_like(x) * 1000  # density (kg/m^3)
-        arho = np.zeros_like(x)  # artificial density
         p = np.zeros_like(x)  # pressure
         cs = np.ones_like(x) * 10.0  # speed of sound
-        ax = np.zeros_like(x)  # acceleration x
-        ay = np.zeros_like(x)  # acceleration y
-        az = np.zeros_like(x)  # acceleration z
         u = np.zeros_like(x)  # velocity x
         v = np.zeros_like(x)  # velocity y
         w = np.zeros_like(x)  # velocity z
@@ -49,13 +43,12 @@ class DeformableObjectSimulation:
             name='fluid',
             x=x, y=y, z=z,
             m=m, h=h, rho=rho,
-            arho=arho, p=p, cs=cs,
-            ax=ax, ay=ay, az=az,
+            p=p, cs=cs,
             u=u, v=v, w=w
         )
         
         # Setup equations
-        equations = [
+        self.equations = [
             Group(
                 equations=[
                     ContinuityEquation(dest='fluid', sources=['fluid']),
@@ -66,33 +59,27 @@ class DeformableObjectSimulation:
         ]
         
         # Create NNPS object
-        nnps = LinkedListNNPS(dim=3, particles=[self.particles])
+        self.nnps = LinkedListNNPS(dim=3, particles=[self.particles])
+        self.nnps.update()
         
-        # Manually create acceleration evaluation
-        from pysph.sph.acceleration_eval import AccelerationEval
-        kernel = None  # Will use default kernel
-        self.acceleration_eval = AccelerationEval([self.particles], equations, kernel=kernel)
-        
-        # Setup integrator
-        self.integrator = EPECIntegrator(fluid=WCSPHStep())
-        self.integrator.set_nnps(nnps)
-        self.integrator.set_equations(equations)
-        self.integrator.setup([self.particles])
-        
-        # Initialize solver-like functionality
+        # Initialize time
         self.dt = 0.0001
-        self.current_time = 0.0
+        self.time = 0.0
     
     def step(self):
         """Manual implementation of time stepping"""
         # Compute accelerations
-        self.acceleration_eval.compute(self.current_time, self.dt)
+        from pysph.sph.acceleration_eval import AccelerationEval
+        accel_eval = AccelerationEval([self.particles], self.equations)
+        accel_eval.compute(self.time, self.dt)
         
-        # Integrate
-        self.integrator.step(self.current_time, self.dt)
+        # Simple Euler integration
+        self.particles.x[:] += self.particles.u[:] * self.dt
+        self.particles.y[:] += self.particles.v[:] * self.dt
+        self.particles.z[:] += self.particles.w[:] * self.dt
         
         # Update time
-        self.current_time += self.dt
+        self.time += self.dt
         
         return {
             'x': self.particles.x.copy(),
