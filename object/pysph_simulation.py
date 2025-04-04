@@ -1,183 +1,127 @@
-# isaacgym_visualizer.py
-import isaacgym
-from isaacgym import gymapi
+# pysph_simulation.py
 import numpy as np
-from object.pysph_simulation import DeformableObjectSimulation
+from pysph.base.utils import get_particle_array
+from pysph.sph.equation import Group
+from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
+from pysph.sph.wc.basic import TaitEOS
+from pysph.base.nnps import LinkedListNNPS
+from pysph.sph.acceleration_eval import AccelerationEval
+from pysph.base.kernels import CubicSpline
 
-class IsaacGymVisualizer:
+class DeformableObjectSimulation:
     def __init__(self):
-        self.gym = gymapi.acquire_gym()
-        self.sim = None
-        self.viewer = None
-        self.env = None
-        self.hand_handle = None
-        self.particle_actors = []
-        self.sph_sim = DeformableObjectSimulation()
+        self.particles = None
+        self.nnps = None
+        self.equations = None
+        self.kernel = None
+        self.setup_simulation()
         
     def setup_simulation(self):
-        """Initialize IsaacGym simulation with FleX"""
-        # FleX simulation parameters
-        sim_params = gymapi.SimParams()
-        sim_params.up_axis = gymapi.UP_AXIS_Z
-        sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
+        """Initialize a 3D deformable rectangle using SPH"""
+        # Particle spacing
+        dx = 0.05
         
-        # FleX-specific parameters
-        sim_params.flex.solver_type = 5  # GPU solver
-        sim_params.flex.num_outer_iterations = 4
-        sim_params.flex.num_inner_iterations = 20
-        sim_params.flex.relaxation = 0.8
-        sim_params.flex.warm_start = 0.5
+        # Create a 3D grid of particles (0.5m x 0.5m x 0.2m)
+        x = np.arange(-0.25, 0.25, dx)
+        y = np.arange(-0.25, 0.25, dx)
+        z = np.arange(0, 0.2, dx)
+        x, y, z = np.meshgrid(x, y, z)
+        x = x.ravel()
+        y = y.ravel()
+        z = z.ravel()
         
-        # Enable GPU pipeline
-        sim_params.use_gpu_pipeline = True
+        # Particle properties
+        m = np.ones_like(x) * dx * dx * dx * 1000  # mass (kg)
+        h = np.ones_like(x) * dx * 1.2  # smoothing length
+        rho = np.ones_like(x) * 1000  # density (kg/m^3)
+        p = np.zeros_like(x)  # pressure
+        cs = np.ones_like(x) * 10.0  # speed of sound
+        u = np.zeros_like(x)  # velocity x
+        v = np.zeros_like(x)  # velocity y
+        w = np.zeros_like(x)  # velocity z
+        ax = np.zeros_like(x)  # acceleration x
+        ay = np.zeros_like(x)  # acceleration y
+        az = np.zeros_like(x)  # acceleration z
         
-        # Create FleX simulation
-        self.sim = self.gym.create_sim(0, 0, gymapi.SIM_FLEX, sim_params)
-        
-        # Create viewer
-        self.viewer = self.gym.create_viewer(self.sim, gymapi.CameraProperties())
-        if self.viewer is None:
-            raise RuntimeError("Failed to create viewer")
-        
-        # Create environment
-        env_spacing = 1.0
-        self.env = self.gym.create_env(
-            self.sim,
-            gymapi.Vec3(-env_spacing, -env_spacing, -env_spacing),
-            gymapi.Vec3(env_spacing, env_spacing, env_spacing),
-            1
+        # Create particle array
+        self.particles = get_particle_array(
+            name='fluid',
+            x=x, y=y, z=z,
+            m=m, h=h, rho=rho,
+            p=p, cs=cs,
+            u=u, v=v, w=w,
+            ax=ax, ay=ay, az=az
         )
         
-        # Load hand asset with FleX settings
-        self._load_hand()
+        # Setup equations
+        self.equations = [
+            Group(
+                equations=[
+                    ContinuityEquation(dest='fluid', sources=['fluid']),
+                    TaitEOS(dest='fluid', sources=None, rho0=1000, c0=10.0, gamma=7.0),
+                    XSPHCorrection(dest='fluid', sources=['fluid'], eps=0.5)
+                ]
+            )
+        ]
         
-        # Setup particles with FleX properties
-        self._setup_particles()
+        # Create kernel
+        self.kernel = CubicSpline(dim=3)
         
-        # Setup camera
-        self._setup_camera()
+        # Create NNPS object
+        self.nnps = LinkedListNNPS(dim=3, particles=[self.particles])
+        self.nnps.update()
+        
+        # Initialize time
+        self.dt = 0.0001
+        self.time = 0.0
     
-    def _load_hand(self):
-        """Load the Panda hand asset with FleX settings"""
-        asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/common/"
-        asset_file = "hand.urdf"
-        
-        asset_options = gymapi.AssetOptions()
-        asset_options.fix_base_link = True
-        asset_options.disable_gravity = True
-        asset_options.flex.disable_gravity = True
-        asset_options.flex.shape_collision_margin = 0.01
-        asset_options.flex.dynamic_friction = 0.5
-        asset_options.flex.static_friction = 0.5
-
-        hand_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
-
-        # Spawn Hand
-        pose = gymapi.Transform()
-        pose.p = gymapi.Vec3(0, 0, 1.5)
-        pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), np.pi)
-        self.hand_handle = self.gym.create_actor(self.env, hand_asset, pose, "hand", 0, 0)
-
-        # Configure finger joints
-        dof_props = self.gym.get_actor_dof_properties(self.env, self.hand_handle)
-        dof_props["driveMode"] = gymapi.DOF_MODE_POS
-        dof_props["stiffness"] = [1000.0, 1000.0]
-        dof_props["damping"] = [200.0, 200.0]
-        self.gym.set_actor_dof_properties(self.env, self.hand_handle, dof_props)
-        
-        # Set initial finger positions
-        self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [0.02, 0.02])
-    
-    def _setup_particles(self):
-        """Create FleX particle representation"""
-        particle_radius = 0.02
-        initial_state = self.sph_sim.get_initial_state()
-        
-        # FleX particle system setup
-        flex_params = gymapi.FlexParticleParams()
-        flex_params.radius = particle_radius
-        flex_params.mass = 0.1  # Should match your SPH mass calculation
-        flex_params.collision_distance = particle_radius * 0.5
-        flex_params.damping = 0.01
-        flex_params.friction = 0.1
-        
-        # Create particle buffer
-        particle_positions = np.zeros((len(initial_state['x']), 3), dtype=np.float32)
-        particle_positions[:, 0] = initial_state['x']
-        particle_positions[:, 1] = initial_state['y']
-        particle_positions[:, 2] = initial_state['z'] + 1.0  # Offset
-        
-        particle_velocities = np.zeros((len(initial_state['u']), 3), dtype=np.float32)
-        particle_velocities[:, 0] = initial_state['u']
-        particle_velocities[:, 1] = initial_state['v']
-        particle_velocities[:, 2] = initial_state['w']
-        
-        # Create FleX particle system
-        particle_system = self.gym.create_particle_system(
-            self.sim,
-            max_particles=len(initial_state['x']),
-            radius=particle_radius,
-            flex_params=flex_params
+    def step(self):
+        """Manual implementation of time stepping"""
+        # Compute accelerations
+        accel_eval = AccelerationEval(
+            particle_arrays=[self.particles],
+            equations=self.equations,
+            kernel=self.kernel
         )
+        accel_eval.compute(self.time, self.dt)
         
-        # Add particles to the system
-        self.gym.set_particle_positions(particle_system, particle_positions)
-        self.gym.set_particle_velocities(particle_system, particle_velocities)
+        # Simple Euler integration
+        self.particles.u[:] += self.particles.ax[:] * self.dt
+        self.particles.v[:] += self.particles.ay[:] * self.dt
+        self.particles.w[:] += self.particles.az[:] * self.dt
         
-        # Store reference to particle system
-        self.particle_system = particle_system
+        self.particles.x[:] += self.particles.u[:] * self.dt
+        self.particles.y[:] += self.particles.v[:] * self.dt
+        self.particles.z[:] += self.particles.w[:] * self.dt
+        
+        # Update NNPS
+        self.nnps.update()
+        
+        # Update time
+        self.time += self.dt
+        
+        return {
+            'x': self.particles.x.copy(),
+            'y': self.particles.y.copy(),
+            'z': self.particles.z.copy(),
+            'u': self.particles.u.copy(),
+            'v': self.particles.v.copy(),
+            'w': self.particles.w.copy()
+        }
     
-    def _setup_camera(self):
-        """Configure the camera view"""
-        cam_pos = gymapi.Vec3(0.5, 0.5, 1.5)
-        cam_target = gymapi.Vec3(0, 0, 1.3)
-        self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
-    
-    def update_particles(self):
-        """Update particle positions from SPH simulation"""
-        state = self.sph_sim.step()
-        
-        # Update FleX particle system
-        particle_positions = np.zeros((len(state['x']), 3), dtype=np.float32)
-        particle_positions[:, 0] = state['x']
-        particle_positions[:, 1] = state['y']
-        particle_positions[:, 2] = state['z']
-        
-        particle_velocities = np.zeros((len(state['u']), 3), dtype=np.float32)
-        particle_velocities[:, 0] = state['u']
-        particle_velocities[:, 1] = state['v']
-        particle_velocities[:, 2] = state['w']
-        
-        self.gym.set_particle_positions(self.particle_system, particle_positions)
-        self.gym.set_particle_velocities(self.particle_system, particle_velocities)
-    
-    def run_simulation(self):
-        """Main simulation loop"""
-        step = 0
-        while not self.gym.query_viewer_has_closed(self.viewer):
-            # Update particle positions
-            self.update_particles()
-            
-            # Animate fingers
-            if step < 30:
-                pos = 0.02 + (0.02 * step/30)
-                self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [pos, pos])
-            elif 60 < step < 90:
-                pos = 0.04 - (0.02 * (step-60)/30)
-                self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [pos, pos])
-            
-            # Step simulation
-            self.gym.simulate(self.sim)
-            self.gym.fetch_results(self.sim, True)
-            self.gym.step_graphics(self.sim)
-            self.gym.draw_viewer(self.viewer, self.sim, True)
-            self.gym.sync_frame_time(self.sim)
-            step += 1
-        
-        self.gym.destroy_viewer(self.viewer)
-        self.gym.destroy_sim(self.sim)
+    def get_initial_state(self):
+        """Return initial particle positions"""
+        return {
+            'x': self.particles.x.copy(),
+            'y': self.particles.y.copy(),
+            'z': self.particles.z.copy(),
+            'u': self.particles.u.copy(),
+            'v': self.particles.v.copy(),
+            'w': self.particles.w.copy()
+        }
 
 if __name__ == "__main__":
-    visualizer = IsaacGymVisualizer()
-    visualizer.setup_simulation()
-    visualizer.run_simulation()
+    sim = DeformableObjectSimulation()
+    print(f"Initial particle count: {len(sim.particles.x)}")
+    state = sim.step()
+    print(f"After one step - first particle position: {state['x'][0]:.3f}, {state['y'][0]:.3f}, {state['z'][0]:.3f}")
