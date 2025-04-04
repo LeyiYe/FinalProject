@@ -39,7 +39,8 @@ def main():
 
     # Spawn Hand
     pose = gymapi.Transform()
-    pose.p = gymapi.Vec3(0, 0, 1.5)  # Higher for better visibility
+    pose.p = gymapi.Vec3(0, 0, 1.5)
+    pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), np.pi)  # Higher for better visibility
     hand_handle = gym.create_actor(env, hand_asset, pose, "hand", 0, 0)
 
     # Configure ONLY FINGER JOINTS (2 DOFs)
