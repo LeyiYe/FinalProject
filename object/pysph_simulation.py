@@ -63,7 +63,7 @@ class DeformableObjectSimulation:
                         XSPHCorrection(dest='fluid', sources=['fluid'])
                     ]
                 )
-            ]
+            ],
             nnps=nnps
         )
     
