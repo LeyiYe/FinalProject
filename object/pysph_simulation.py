@@ -36,13 +36,23 @@ class DeformableObjectSimulation:
         arho = np.zeros_like(x)  # artificial density
         p = np.zeros_like(x)  # pressure
         cs = np.ones_like(x) * 10.0  # speed of sound
+        ax = np.zeros_like(x)  # acceleration x
+        ay = np.zeros_like(x)  # acceleration y
+        az = np.zeros_like(x)  # acceleration z
+        u = np.zeros_like(x)  # velocity x
+        v = np.zeros_like(x)  # velocity y
+        w = np.zeros_like(x)  # velocity z
+        vhat = np.zeros_like(x)  # XSPH corrected velocity magnitude
         
         # Create particle array with all required properties
         self.particles = get_particle_array(
             name='fluid',
             x=x, y=y, z=z,
             m=m, h=h, rho=rho,
-            arho=arho, p=p, cs=cs
+            arho=arho, p=p, cs=cs,
+            ax=ax, ay=ay, az=az,
+            u=u, v=v, w=w,
+            vhat=vhat
         )
         
         # Setup solver
@@ -57,13 +67,13 @@ class DeformableObjectSimulation:
         # Create NNPS object
         nnps = LinkedListNNPS(dim=3, particles=[self.particles])
         
-        # Setup equations
+        # Setup equations with XSPH correction (eps=0.5 as in documentation)
         equations = [
             Group(
                 equations=[
                     ContinuityEquation(dest='fluid', sources=['fluid']),
                     TaitEOS(dest='fluid', sources=None, rho0=1000, c0=10.0, gamma=7.0),
-                    XSPHCorrection(dest='fluid', sources=['fluid'])
+                    XSPHCorrection(dest='fluid', sources=['fluid'], eps=0.5)
                 ]
             )
         ]
@@ -77,7 +87,11 @@ class DeformableObjectSimulation:
         return {
             'x': self.particles.x.copy(),
             'y': self.particles.y.copy(),
-            'z': self.particles.z.copy()
+            'z': self.particles.z.copy(),
+            'u': self.particles.u.copy(),
+            'v': self.particles.v.copy(),
+            'w': self.particles.w.copy(),
+            'vhat': np.sqrt(self.particles.u**2 + self.particles.v**2 + self.particles.w**2)
         }
     
     def get_initial_state(self):
@@ -85,12 +99,19 @@ class DeformableObjectSimulation:
         return {
             'x': self.particles.x.copy(),
             'y': self.particles.y.copy(),
-            'z': self.particles.z.copy()
+            'z': self.particles.z.copy(),
+            'u': self.particles.u.copy(),
+            'v': self.particles.v.copy(),
+            'w': self.particles.w.copy(),
+            'vhat': np.zeros_like(self.particles.x)
         }
 
 if __name__ == "__main__":
     # Test the simulation
     sim = DeformableObjectSimulation()
     print(f"Initial particle count: {len(sim.particles.x)}")
+    print(f"Particle properties: {sim.particles.properties.keys()}")
     state = sim.step()
     print(f"After one step - first particle position: {state['x'][0]:.3f}, {state['y'][0]:.3f}, {state['z'][0]:.3f}")
+    print(f"Velocity: {state['u'][0]:.3f}, {state['v'][0]:.3f}, {state['w'][0]:.3f}")
+    print(f"XSPH corrected velocity magnitude: {state['vhat'][0]:.3f}")
