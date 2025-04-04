@@ -7,6 +7,7 @@ from pysph.sph.integrator_step import WCSPHStep
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
 from pysph.sph.wc.basic import TaitEOS
+from pysph.base.nnps import LinkedListNNPS
 
 class DeformableObjectSimulation:
     def __init__(self):
@@ -49,6 +50,8 @@ class DeformableObjectSimulation:
             tf=10.0
         )
         
+        nnps = LinkedListNNPS(dim=3, particles=[self.particles])
+
         # Setup equations
         self.solver.setup(
             [self.particles],
@@ -61,6 +64,7 @@ class DeformableObjectSimulation:
                     ]
                 )
             ]
+            nnps=nnps
         )
     
     def step(self):
