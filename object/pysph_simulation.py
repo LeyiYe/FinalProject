@@ -64,7 +64,7 @@ class DeformableObjectSimulation:
             x0=x0, y0=y0, z0=z0
         )
         
-        # Setup solver with workaround for parallel manager
+        # Setup solver
         integrator = EPECIntegrator(fluid=WCSPHStep())
         self.solver = Solver(
             dim=3,
@@ -72,12 +72,6 @@ class DeformableObjectSimulation:
             dt=0.0001,
             tf=10.0
         )
-        
-        # Workaround for parallel manager issue
-        if not hasattr(self.solver, 'pm'):
-            # Create a dummy parallel manager attribute
-            self.solver.pm = type('DummyParallelManager', (), {})()
-            self.solver.pm.comm = type('DummyComm', (), {'size':1})()
         
         # Create NNPS object
         nnps = LinkedListNNPS(dim=3, particles=[self.particles])
@@ -93,12 +87,14 @@ class DeformableObjectSimulation:
             )
         ]
         
-        # Call setup with all required parameters
+        # Initialize solver
         self.solver.setup(particles=[self.particles], equations=equations, nnps=nnps)
+        self.current_time = 0.0
     
     def step(self):
         """Advance the simulation by one timestep"""
-        self.solver.step(1)
+        self.solver.solve(stop_time=self.current_time + self.solver.dt)
+        self.current_time += self.solver.dt
         return {
             'x': self.particles.x.copy(),
             'y': self.particles.y.copy(),
@@ -120,7 +116,6 @@ class DeformableObjectSimulation:
         }
 
 if __name__ == "__main__":
-    # Test the simulation
     sim = DeformableObjectSimulation()
     print(f"Initial particle count: {len(sim.particles.x)}")
     state = sim.step()
