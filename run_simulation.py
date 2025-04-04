@@ -1,88 +1,155 @@
+# isaacgym_visualizer.py
 import isaacgym
 from isaacgym import gymapi
 import numpy as np
+from object.pysph_simulation import DeformableObjectSimulation
 
-def main():
-    # Initialize
-    gym = gymapi.acquire_gym()
-    sim_params = gymapi.SimParams()
-    sim_params.up_axis = gymapi.UP_AXIS_Z
-    sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
-    sim_params.use_gpu_pipeline = False
-    sim_params.physx.num_threads = 4
-    sim_params.physx.use_gpu = False
-
-    sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
-    
-    # Configure viewer
-    viewer = gym.create_viewer(sim, gymapi.CameraProperties())
-    if viewer is None:
-        print("Failed to create viewer")
-        return
-
-    # Load HAND-ONLY URDF
-    asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/common/"
-    asset_file = "hand.urdf"  # Using hand-only URDF
-    asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True  # Critical for hand-only
-    asset_options.disable_gravity = True  # Better for gripper control
-    asset_options.flip_visual_attachments = True
-    asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
-    asset_options.vhacd_enabled = True
-
-    hand_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
-
-    # Create env
-    env_spacing = 1.0
-    env = gym.create_env(sim, gymapi.Vec3(-env_spacing, -env_spacing, -env_spacing), 
-                         gymapi.Vec3(env_spacing, env_spacing, env_spacing), 1)
-
-    # Spawn Hand
-    pose = gymapi.Transform()
-    pose.p = gymapi.Vec3(0, 0, 1.5)
-    pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), np.pi)  # Higher for better visibility
-    hand_handle = gym.create_actor(env, hand_asset, pose, "hand", 0, 0)
-
-    # Configure ONLY FINGER JOINTS (2 DOFs)
-    dof_props = gym.get_actor_dof_properties(env, hand_handle)
-    print(f"Hand has {len(dof_props['stiffness'])} DOFs")  # Should be 2
-    
-    dof_props["driveMode"] = gymapi.DOF_MODE_POS
-    dof_props["stiffness"] = [1000.0, 1000.0]  # Only 2 values needed
-    dof_props["damping"] = [200.0, 200.0]
-    gym.set_actor_dof_properties(env, hand_handle, dof_props)
-
-    # Set initial finger positions (0=open, 0.04=closed)
-    gym.set_actor_dof_position_targets(env, hand_handle, [0.02, 0.02])  # Half-closed
-
-    # Camera setup focused on gripper
-    cam_pos = gymapi.Vec3(0.5, 0.5, 1.5)  # Closer view
-    cam_target = gymapi.Vec3(0, 0, 1.3)
-    gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
-
-    # Simple grasping sequence
-    step = 0
-    while not gym.query_viewer_has_closed(viewer):
-        # Animate fingers
-        if step < 30:
-            # Close gradually
-            pos = 0.02 + (0.02 * step/30)
-            gym.set_actor_dof_position_targets(env, hand_handle, [pos, pos])
-        elif 60 < step < 90:
-            # Open gradually
-            pos = 0.04 - (0.02 * (step-60)/30)
-            gym.set_actor_dof_position_targets(env, hand_handle, [pos, pos])
+class IsaacGymVisualizer:
+    def __init__(self):
+        self.gym = gymapi.acquire_gym()
+        self.sim = None
+        self.viewer = None
+        self.env = None
+        self.hand_handle = None
+        self.particle_actors = []
+        self.sph_sim = DeformableObjectSimulation()
         
-        # Step simulation
-        gym.simulate(sim)
-        gym.fetch_results(sim, True)
-        gym.step_graphics(sim)
-        gym.draw_viewer(viewer, sim, True)
-        gym.sync_frame_time(sim)
-        step += 1
+    def setup_simulation(self):
+        """Initialize IsaacGym simulation"""
+        # Simulation parameters
+        sim_params = gymapi.SimParams()
+        sim_params.up_axis = gymapi.UP_AXIS_Z
+        sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.81)
+        sim_params.use_gpu_pipeline = False
+        sim_params.physx.num_threads = 4
+        sim_params.physx.use_gpu = False
 
-    gym.destroy_viewer(viewer)
-    gym.destroy_sim(sim)
+        self.sim = self.gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
+        
+        # Create viewer
+        self.viewer = self.gym.create_viewer(self.sim, gymapi.CameraProperties())
+        if self.viewer is None:
+            raise RuntimeError("Failed to create viewer")
+        
+        # Create environment
+        env_spacing = 1.0
+        self.env = self.gym.create_env(
+            self.sim,
+            gymapi.Vec3(-env_spacing, -env_spacing, -env_spacing),
+            gymapi.Vec3(env_spacing, env_spacing, env_spacing),
+            1
+        )
+        
+        # Load hand asset
+        self._load_hand()
+        
+        # Setup particles
+        self._setup_particles()
+        
+        # Setup camera
+        self._setup_camera()
+    
+    def _load_hand(self):
+        """Load the Panda hand asset"""
+        asset_root = "/home/ly1336/FinalProject/FinalProject/franka_description/robots/common/"
+        asset_file = "hand.urdf"
+        asset_options = gymapi.AssetOptions()
+        asset_options.fix_base_link = True
+        asset_options.disable_gravity = True
+        asset_options.flip_visual_attachments = True
+        asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+        asset_options.vhacd_enabled = True
+
+        hand_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
+
+        # Spawn Hand
+        pose = gymapi.Transform()
+        pose.p = gymapi.Vec3(0, 0, 1.5)
+        pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), np.pi)
+        self.hand_handle = self.gym.create_actor(self.env, hand_asset, pose, "hand", 0, 0)
+
+        # Configure finger joints
+        dof_props = self.gym.get_actor_dof_properties(self.env, self.hand_handle)
+        dof_props["driveMode"] = gymapi.DOF_MODE_POS
+        dof_props["stiffness"] = [1000.0, 1000.0]
+        dof_props["damping"] = [200.0, 200.0]
+        self.gym.set_actor_dof_properties(self.env, self.hand_handle, dof_props)
+        
+        # Set initial finger positions
+        self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [0.02, 0.02])
+    
+    def _setup_particles(self):
+        """Create visual representation of SPH particles"""
+        particle_radius = 0.02
+        particle_color = gymapi.Vec3(0.2, 0.6, 1.0)
+        
+        # Create sphere asset for particles
+        sphere_asset = self.gym.create_sphere(self.sim, particle_radius, gymapi.AssetOptions())
+        
+        # Get initial particle positions
+        initial_state = self.sph_sim.get_initial_state()
+        
+        # Create actors for each particle (offset in Z to be below the hand)
+        for i in range(len(initial_state['x'])):
+            pose = gymapi.Transform()
+            pose.p = gymapi.Vec3(
+                initial_state['x'][i],
+                initial_state['y'][i],
+                initial_state['z'][i] + 1.0  # Offset to position below hand
+            )
+            actor = self.gym.create_actor(self.env, sphere_asset, pose, f"particle_{i}", 0, 0)
+            self.gym.set_rigid_body_color(
+                self.env, actor, 0,
+                gymapi.MeshType.VISUAL,
+                particle_color
+            )
+            self.particle_actors.append(actor)
+    
+    def _setup_camera(self):
+        """Configure the camera view"""
+        cam_pos = gymapi.Vec3(0.5, 0.5, 1.5)
+        cam_target = gymapi.Vec3(0, 0, 1.3)
+        self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
+    
+    def update_particles(self):
+        """Update particle positions from SPH simulation"""
+        state = self.sph_sim.step()
+        for i, actor in enumerate(self.particle_actors):
+            pose = gymapi.Transform()
+            pose.p = gymapi.Vec3(
+                state['x'][i],
+                state['y'][i],
+                state['z'][i] + 1.0  # Same Z offset as initial setup
+            )
+            self.gym.set_actor_transform(self.env, actor, pose)
+    
+    def run_simulation(self):
+        """Main simulation loop"""
+        step = 0
+        while not self.gym.query_viewer_has_closed(self.viewer):
+            # Update particle positions
+            self.update_particles()
+            
+            # Animate fingers
+            if step < 30:
+                pos = 0.02 + (0.02 * step/30)
+                self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [pos, pos])
+            elif 60 < step < 90:
+                pos = 0.04 - (0.02 * (step-60)/30)
+                self.gym.set_actor_dof_position_targets(self.env, self.hand_handle, [pos, pos])
+            
+            # Step simulation
+            self.gym.simulate(self.sim)
+            self.gym.fetch_results(self.sim, True)
+            self.gym.step_graphics(self.sim)
+            self.gym.draw_viewer(self.viewer, self.sim, True)
+            self.gym.sync_frame_time(self.sim)
+            step += 1
+        
+        self.gym.destroy_viewer(self.viewer)
+        self.gym.destroy_sim(self.sim)
 
 if __name__ == "__main__":
-    main()
+    visualizer = IsaacGymVisualizer()
+    visualizer.setup_simulation()
+    visualizer.run_simulation()
