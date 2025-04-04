@@ -94,13 +94,19 @@ class DeformableObjectSimulation:
             )
         ]
         
-        # Call setup with all required parameters
+        # Initialize solver
         self.solver.setup(particles=[self.particles], equations=equations, nnps=nnps)
         self.current_time = 0.0
     
     def step(self):
         """Advance the simulation by one timestep"""
-        self.solver.solve(stop_time=self.current_time + self.solver.dt)
+        # Version-compatible solve call
+        if hasattr(self.solver, 'solve_one_step'):
+            self.solver.solve_one_step(self.solver.dt)
+        else:
+            # Fallback for older versions
+            self.solver.step(1)
+        
         self.current_time += self.solver.dt
         return {
             'x': self.particles.x.copy(),
