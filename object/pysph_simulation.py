@@ -1,17 +1,19 @@
 # pysph_simulation.py
 import numpy as np
 from pysph.base.utils import get_particle_array
-from pysph.solver.solver import Solver
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
 from pysph.sph.wc.basic import TaitEOS
 from pysph.base.nnps import LinkedListNNPS
+from pysph.sph.acceleration_eval import AccelerationEval
+from pysph.base.kernels import CubicSpline
 
 class DeformableObjectSimulation:
     def __init__(self):
         self.particles = None
         self.nnps = None
         self.equations = None
+        self.kernel = None
         self.setup_simulation()
         
     def setup_simulation(self):
@@ -37,6 +39,9 @@ class DeformableObjectSimulation:
         u = np.zeros_like(x)  # velocity x
         v = np.zeros_like(x)  # velocity y
         w = np.zeros_like(x)  # velocity z
+        ax = np.zeros_like(x)  # acceleration x
+        ay = np.zeros_like(x)  # acceleration y
+        az = np.zeros_like(x)  # acceleration z
         
         # Create particle array
         self.particles = get_particle_array(
@@ -44,7 +49,8 @@ class DeformableObjectSimulation:
             x=x, y=y, z=z,
             m=m, h=h, rho=rho,
             p=p, cs=cs,
-            u=u, v=v, w=w
+            u=u, v=v, w=w,
+            ax=ax, ay=ay, az=az
         )
         
         # Setup equations
@@ -58,6 +64,9 @@ class DeformableObjectSimulation:
             )
         ]
         
+        # Create kernel
+        self.kernel = CubicSpline(dim=3)
+        
         # Create NNPS object
         self.nnps = LinkedListNNPS(dim=3, particles=[self.particles])
         self.nnps.update()
@@ -69,14 +78,24 @@ class DeformableObjectSimulation:
     def step(self):
         """Manual implementation of time stepping"""
         # Compute accelerations
-        from pysph.sph.acceleration_eval import AccelerationEval
-        accel_eval = AccelerationEval([self.particles], self.equations)
+        accel_eval = AccelerationEval(
+            particle_arrays=[self.particles],
+            equations=self.equations,
+            kernel=self.kernel
+        )
         accel_eval.compute(self.time, self.dt)
         
         # Simple Euler integration
+        self.particles.u[:] += self.particles.ax[:] * self.dt
+        self.particles.v[:] += self.particles.ay[:] * self.dt
+        self.particles.w[:] += self.particles.az[:] * self.dt
+        
         self.particles.x[:] += self.particles.u[:] * self.dt
         self.particles.y[:] += self.particles.v[:] * self.dt
         self.particles.z[:] += self.particles.w[:] * self.dt
+        
+        # Update NNPS
+        self.nnps.update()
         
         # Update time
         self.time += self.dt
