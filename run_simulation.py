@@ -2,7 +2,7 @@
 import isaacgym
 from isaacgym import gymapi
 import numpy as np
-from object.pysph_simulation import DeformableObjectSimulation
+from pysph_simulation import DeformableObjectSimulation
 
 class IsaacGymVisualizer:
     def __init__(self):
@@ -98,11 +98,12 @@ class IsaacGymVisualizer:
                 initial_state['z'][i] + 1.0  # Offset to position below hand
             )
             actor = self.gym.create_actor(self.env, sphere_asset, pose, f"particle_{i}", 0, 0)
-            self.gym.set_rigid_body_color(
-                self.env, actor, 0,
-                gymapi.MeshType.VISUAL,
-                particle_color
-            )
+            
+            # Updated color setting method
+            props = self.gym.get_actor_rigid_body_shape_properties(self.env, actor)
+            props[0].color = particle_color
+            self.gym.set_actor_rigid_body_shape_properties(self.env, actor, props)
+            
             self.particle_actors.append(actor)
     
     def _setup_camera(self):
