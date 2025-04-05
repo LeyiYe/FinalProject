@@ -7,7 +7,7 @@ import time
 # Initialize PyBullet
 physicsClient = p.connect(p.GUI)  # Use p.DIRECT for headless mode
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
-p.setGravity(0, 0, -9.8)
+p.setGravity(0, -9.8,0)
 p.setRealTimeSimulation(0)
 
 # Load Panda hand (replace with your URDF path)
