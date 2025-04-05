@@ -19,7 +19,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 
 """Convert a .mesh file (fTetWild format) to .tet (IsaacGym format)."""
-
+import sys
 
 def convert_mesh_to_tet(mesh_file_path, tet_output_path):
     """Convert a .mesh file to a .tet file."""
@@ -57,6 +57,7 @@ def convert_mesh_to_tet(mesh_file_path, tet_output_path):
 
 
 if __name__ == "__main__":
-    convert_mesh_to_tet(
-        "path/to/mesh",
-        "path/to/tet")
+    if len(sys.argv) != 3:
+        print("Usage: python mesh_to_tet.py <input.mesh> <output.tet>")
+        sys.exit(1)
+    convert_mesh_to_tet(sys.argv[1], sys.argv[2])
