@@ -3,6 +3,7 @@ import pybullet_data
 import numpy as np
 import h5py
 import time
+import os
 
 # Initialize PyBullet
 physicsClient = p.connect(p.GUI)  # Use p.DIRECT for headless mode
@@ -10,12 +11,14 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.setGravity(0, -9.8,0)
 p.setRealTimeSimulation(0)
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
 # Load Panda hand (replace with your URDF path)
-panda_path = "franka_description/robots/common/hand.urdf"  # Ensure this file exists in your folder
+panda_path = os.path.join(script_dir, "panda_hand.urdf")  # Ensure this file exists in your folder
 panda_id = p.loadURDF(panda_path, useFixedBase=True)
 
 # Load rectangle.obj as a collision shape
-obj_path = "object/rectangle/rectangle.obj"
+obj_path = os.path.join(script_dir, "rectangle.obj")
 obj_visual = p.createVisualShape(shapeType=p.GEOM_MESH, fileName=obj_path)
 obj_collision = p.createCollisionShape(shapeType=p.GEOM_MESH, fileName=obj_path)
 obj_id = p.createMultiBody(baseMass=1.0, baseCollisionShapeIndex=obj_collision, baseVisualShapeIndex=obj_visual)
