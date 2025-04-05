@@ -14,11 +14,11 @@ p.setRealTimeSimulation(0)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load Panda hand (replace with your URDF path)
-panda_path = os.path.join(script_dir, "hand.urdf")  # Ensure this file exists in your folder
+panda_path = os.path.join(script_dir, "franka_description/robots/common/hand.urdf")  # Ensure this file exists in your folder
 panda_id = p.loadURDF(panda_path, useFixedBase=True)
 
 # Load rectangle.obj as a collision shape
-obj_path = os.path.join(script_dir, "rectangle_obj.obj")
+obj_path = os.path.join(script_dir, "object/rectangle/rectangle_obj.obj")
 obj_visual = p.createVisualShape(shapeType=p.GEOM_MESH, fileName=obj_path)
 obj_collision = p.createCollisionShape(shapeType=p.GEOM_MESH, fileName=obj_path)
 obj_id = p.createMultiBody(baseMass=1.0, baseCollisionShapeIndex=obj_collision, baseVisualShapeIndex=obj_visual)
