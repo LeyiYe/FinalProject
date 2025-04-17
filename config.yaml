@@ -1,8 +1,8 @@
 
 
-use_viewer: True
+use_viewer: False
 replace_existing_results: False
-write_results: True
+write_results: False
 
 sim_params:
   platform_height: 1.0
