@@ -10,12 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 class PandaPhysics(Application):
     def __init__(self, urdf_file, particle_array):
-        """Initialize physics simulation for Panda hand grasping deformable objects
-        
-        Args:
-            urdf_file: Path to Panda hand URDF 
-            particle_array: PySPH array for deformable object
-        """
+        """Initialize physics simulation"""
         super().__init__()
         
         # Robot setup
@@ -30,29 +25,20 @@ class PandaPhysics(Application):
         # Configure scheme
         self.scheme = self._create_scheme()
         
-        # Create particles and solver
-        self.create_particles()
-        self.create_solver()
-        
         # Complete setup
         self.setup()
 
-    def create_solver(self):
-        """Create and configure the solver"""
+    def configure_scheme(self):
+        """Configure the solver with proper parameters"""
         from pysph.base.kernels import CubicSpline
         from pysph.sph.integrator import EPECIntegrator
         from pysph.sph.integrator_step import SolidMechStep
         
-        kernel = CubicSpline(dim=3)
-        integrator = EPECIntegrator(elastic=SolidMechStep())
-        
-        solver = self.create_solver(
-            kernel=kernel,
-            integrator=integrator,
-            dt=1e-5,  # Time step
-            tf=1.0    # Final time
-        )
-        return solver
+        # These will be used by Application's setup
+        self.kernel = CubicSpline(dim=3)
+        self.integrator = EPECIntegrator(elastic=SolidMechStep())
+        self.dt = 1e-5
+        self.tf = 1.0
 
     def _prepare_object_particles(self, particle_array):
         """Add required properties for deformable object"""
@@ -76,8 +62,8 @@ class PandaPhysics(Application):
     def _create_scheme(self):
         """Configure elastic solids scheme"""
         return ElasticSolidsScheme(
-            elastic_solids=['object'],  # Deformable object
-            solids=['hand_boundary'],   # Robot hand
+            elastic_solids=['object'],
+            solids=['hand_boundary'],
             dim=3,
             artificial_stress_eps=0.3,
             alpha=1.0,
@@ -85,19 +71,19 @@ class PandaPhysics(Application):
         )
 
     def create_particles(self):
-        """Create all particle arrays (PySPH Application requirement)"""
+        """Create all particle arrays"""
         return [self.particle_array] + self._create_boundary_particles()
 
     def _create_boundary_particles(self):
-        """Generate boundary particles from URDF collision geometries"""
+        """Generate boundary particles from URDF"""
         boundaries = []
         for name, points in self.boundaries.items():
             arr = get_particle_array(
                 name=f'hand_boundary_{name}',
                 x=points[:,0], y=points[:,1], z=points[:,2],
-                m=np.ones(len(points))*0.1,  # Mass
-                h=np.ones(len(points))*0.005, # Smoothing length
-                tag=np.ones(len(points))      # Mark as boundary
+                m=np.ones(len(points))*0.1,
+                h=np.ones(len(points))*0.005,
+                tag=np.ones(len(points))
             )
             boundaries.append(arr)
         return boundaries
