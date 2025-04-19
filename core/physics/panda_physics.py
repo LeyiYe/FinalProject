@@ -22,23 +22,23 @@ class PandaPhysics(Application):
         self.particle_array = self._prepare_object_particles(particle_array)
         self.boundaries = self._create_boundaries()
         
-        # Configure scheme
+        # Configure scheme and solver parameters
         self.scheme = self._create_scheme()
+        self.configure_solver()
         
         # Complete setup
         self.setup()
 
-    def configure_scheme(self):
-        """Configure the solver with proper parameters"""
+    def configure_solver(self):
+        """Configure solver parameters"""
         from pysph.base.kernels import CubicSpline
         from pysph.sph.integrator import EPECIntegrator
         from pysph.sph.integrator_step import SolidMechStep
         
-        # These will be used by Application's setup
         self.kernel = CubicSpline(dim=3)
         self.integrator = EPECIntegrator(elastic=SolidMechStep())
-        self.dt = 1e-5
-        self.tf = 1.0
+        self.dt = 1e-5  # Time step
+        self.tf = 1.0   # Final time
 
     def _prepare_object_particles(self, particle_array):
         """Add required properties for deformable object"""
