@@ -1,223 +1,184 @@
 import numpy as np
-import pysph
-from scipy.linalg import expm
-from pysph.solver.solver import Solver
-from pysph.base.utils import get_particle_array
 from transforms3d.euler import euler2mat
+from pysph.solver.application import Application
+from pysph.sph.scheme import SolidMechScheme
+from pysph.base.utils import get_particle_array
 from core.robot.urdf_processor import URDFProcessor
-from core.physics.panda_fk import get_fk, wedge, skew
+from core.physics.panda_fk import get_fk
+from pysph.tools.ipy_viewer import viewer
 
-class PandaPhysics:
+class PandaPhysics(Application):
     def __init__(self, urdf_file, particle_array):
-        """
-        Initialize physics simulation with Panda hand and deformable object
+        """Initialize physics simulation for Panda hand grasping deformable objects
         
         Args:
-            urdf_file (str): Path to Panda hand URDF file
-            particle_array: PySPH particle array for the deformable object
+            urdf_file: Path to Panda hand URDF 
+            particle_array: PySPH array for deformable object
         """
+        # Initialize PySPH Application
+        super().__init__()
+        
+        # Robot setup
         self.urdf_processor = URDFProcessor(urdf_file)
+        self.hand_origin = np.eye(4)
+        self.joint_positions = {}
+        
+        # Physics setup
+        self.particle_array = self._prepare_object_particles(particle_array)
         self.boundaries = self._create_boundaries()
-        self.solver = self._setup_solver(particle_array)
-        self.hand_origin = np.eye(4)  # Will be updated with actual hand origin
-        self.joint_positions = {}  # Dictionary to store joint states
         
+        # Configure solver
+        self.scheme = self._create_scheme()
+        self.configure_solver()
+
+    def _prepare_object_particles(self, particle_array):
+        """Add required properties for deformable object"""
+        particle_array.add_property('tag', data=np.zeros(len(particle_array.x)))
+        particle_array.add_constant('E', 1e6)  # Young's modulus (1 MPa)
+        particle_array.add_constant('nu', 0.45)  # Poisson's ratio
+        return particle_array
+
+    def _create_scheme(self):
+        """Configure SolidMechScheme for deformable solids"""
+        return SolidMechScheme(
+            solids=['object'],  # Matches particle array name
+            boundaries=['hand_boundary'],
+            dim=3,
+            rho0=1200,  # kg/m^3 (silicone rubber density)
+            h0=0.005,   # Smoothing length
+            alpha=0.2,  # Tensile instability correction
+            beta=0.2    # Artificial stress
+        )
+
+    def create_particles(self):
+        """Create all particle arrays (PySPH Application requirement)"""
+        return [self.particle_array] + self._create_boundary_particles()
+
+    def _create_boundary_particles(self):
+        """Generate boundary particles from URDF collision geometries"""
+        boundaries = []
+        for name, points in self.boundaries.items():
+            arr = get_particle_array(
+                name='hand_boundary',
+                x=points[:,0], y=points[:,1], z=points[:,2],
+                m=np.ones(len(points))*0.1,  # Mass
+                h=np.ones(len(points))*0.005, # Smoothing length
+                tag=np.ones(len(points))      # Mark as boundary
+            )
+            boundaries.append(arr)
+        return boundaries
+
     def _create_boundaries(self):
-        """Create boundary particles from URDF collision geometries"""
+        """Convert URDF collision shapes to boundary point clouds"""
         boundaries = {}
-        
-        # Get collision shapes from URDF
         for link_name, link_data in self.urdf_processor.links.items():
             for i, collision in enumerate(link_data['collisions']):
                 boundary_name = f"{link_name}_collision_{i}"
                 boundaries[boundary_name] = self._create_boundary_from_collision(collision)
-                
         return boundaries
-    
+
     def _create_boundary_from_collision(self, collision):
-        """Create boundary particles for a specific collision geometry"""
+        """Generate points for different collision geometries"""
         geo_type = collision['type']
         params = collision['params']
         pos = collision['position']
         rot = collision['rotation']
         
-        # Create points based on geometry type
+        # Generate base points
         if geo_type == 'box':
-            size = [float(x) for x in params['size'].split()]
-            x, y, z = np.meshgrid(
-                np.linspace(-size[0]/2, size[0]/2, 5),
-                np.linspace(-size[1]/2, size[1]/2, 5),
-                np.linspace(-size[2]/2, size[2]/2, 5)
-            )
-            points = np.vstack([x.ravel(), y.ravel(), z.ravel()]).T
+            size = list(map(float, params['size'].split()))
+            points = np.mgrid[
+                -size[0]/2:size[0]/2:5j,
+                -size[1]/2:size[1]/2:5j,
+                -size[2]/2:size[2]/2:5j
+            ].reshape(3,-1).T
             
         elif geo_type == 'sphere':
             radius = float(params['radius'])
-            # Create points on sphere surface
             theta, phi = np.mgrid[0:2*np.pi:10j, 0:np.pi:10j]
-            x = radius * np.cos(theta) * np.sin(phi)
-            y = radius * np.sin(theta) * np.sin(phi)
-            z = radius * np.cos(phi)
-            points = np.vstack([x.ravel(), y.ravel(), z.ravel()]).T
+            points = np.vstack([
+                radius*np.cos(theta)*np.sin(phi),
+                radius*np.sin(theta)*np.sin(phi),
+                radius*np.cos(phi)
+            ]).reshape(3,-1).T
             
         elif geo_type == 'cylinder':
-            radius = float(params['radius'])
-            length = float(params['length'])
-            # Create points on cylinder surface
+            radius, length = float(params['radius']), float(params['length'])
             theta, h = np.mgrid[0:2*np.pi:10j, -length/2:length/2:5j]
-            x = radius * np.cos(theta)
-            y = radius * np.sin(theta)
-            z = h
-            points = np.vstack([x.ravel(), y.ravel(), z.ravel()]).T
+            points = np.vstack([
+                radius*np.cos(theta),
+                radius*np.sin(theta),
+                h
+            ]).reshape(3,-1).T
             
-        else:  # For mesh or unsupported types, create simple placeholder
-            points = np.array([[0, 0, 0]])
-            
-        # Apply collision geometry transform
-        homog_points = np.hstack([points, np.ones((len(points), 1))])
-        transform = np.eye(4)
-        transform[:3, :3] = rot
-        transform[:3, 3] = pos
-        transformed_points = (transform @ homog_points.T).T[:, :3]
+        else:  # Fallback for meshes
+            points = np.array([[0,0,0]])
         
-        return transformed_points
-    
-    def _setup_solver(self, particle_array):
-        """Configure PySPH solver with particles and boundaries"""
-        solver = Solver()
-        solver.append_particle_arrays([particle_array])
-        
-        for name, boundary in self.boundaries.items():
-            # Create boundary particle array
-            boundary_particles = get_particle_array(
-                name=name,
-                x=boundary[:,0],
-                y=boundary[:,1],
-                z=boundary[:,2],
-                m=np.ones(len(boundary))*0.001,
-                h=np.ones(len(boundary))*0.005
-            )
-            solver.add_boundary(boundary_particles)
-            
-        return solver
-    
-    def _get_link_fk(self, link_name):
-        """
-        Get transform for a specific link using current joint positions
-        
-        Args:
-            link_name: Name of the link to get transform for
-            
-        Returns:
-            4x4 transformation matrix for the link
-        """
-        # Convert joint positions dictionary to array in correct order
-        # Note: You'll need to ensure joint order matches your FK implementation
-        joint_array = np.zeros(16)  # Adjust size based on your FK
-        for i in range(16):  # Assuming 16 joints as in your FK
-            joint_array[i] = self.joint_positions.get(f'joint_{i}', 0.0)
-        
-        # Get FK transform for this link
-        if 'left' in link_name.lower():
-            mode = 'left'
-        elif 'right' in link_name.lower():
-            mode = 'right'
-        else:
-            mode = 'mid'
-            
-        # Create hand origin transform from current state
-        hand_origin = self.hand_origin  # Should be updated via update_boundaries
-        
-        # Get the full transform using your FK function
-        transform = get_fk(joint_array, hand_origin, mode=mode)
-        
-        return transform
-    
+        # Apply transform
+        homog = np.column_stack([points, np.ones(len(points))])
+        tf = np.eye(4)
+        tf[:3,:3] = rot
+        tf[:3,3] = pos
+        return (tf @ homog.T).T[:,:3]
+
     def update_boundaries(self, joint_positions, hand_origin=None):
-        """
-        Update boundary positions based on joint states and hand origin
-        
-        Args:
-            joint_positions: Dictionary of joint_name:position values
-            hand_origin: Optional 4x4 transform matrix for hand base
-        """
-        # Update stored joint positions
+        """Update robot pose for new timestep"""
         self.joint_positions = joint_positions
-        
         if hand_origin is not None:
             self.hand_origin = hand_origin
             
-        # Update all boundaries based on their link transforms
-        for boundary_name in self.boundaries:
-            # Extract link name from boundary name (format: linkname_collision_X)
-            link_name = '_'.join(boundary_name.split('_')[:-2])
-            link_tf = self._get_link_fk(link_name)
-            self._apply_transform_to_boundary(boundary_name, link_tf)
-        
-        # Update solver with new boundary positions
-        for name in self.boundaries:
-            self.solver.boundary_arrays[name].x = self.boundaries[name][:,0]
-            self.solver.boundary_arrays[name].y = self.boundaries[name][:,1]
-            self.solver.boundary_arrays[name].z = self.boundaries[name][:,2]
-    
-    def _apply_transform_to_boundary(self, name, transform):
-        """Apply 4x4 transform to boundary particles"""
-        # Convert to homogeneous coordinates
-        ones = np.ones((len(self.boundaries[name]), 1))
-        homog = np.hstack([self.boundaries[name], ones])
-        
-        # Apply transform
-        transformed = (transform @ homog.T).T
-        
-        # Update boundary positions (ignore homogeneous coordinate)
-        self.boundaries[name] = transformed[:,:3]
-    
-    def step(self):
-        """Advance physics simulation by one timestep"""
-        self.solver.step()
-    
-    def get_contacts(self):
-        """
-        Detect contacts between object and hand
-        
-        Returns:
-            List of contact dictionaries with:
-            - particle_id: ID of contacting particle
-            - boundary: Name of boundary element
-            - position: Contact position
-            - force: Contact force magnitude
-        """
-        contacts = []
-        obj_particles = self.solver.particles[0]  # Assuming object is first
-        
-        for boundary_name in self.boundaries:
-            boundary_particles = self.solver.boundary_arrays[boundary_name]
+        # Update all boundary particles
+        for name, points in self.boundaries.items():
+            link_name = '_'.join(name.split('_')[:-2])
+            tf = self._get_link_tf(link_name)
+            self.boundaries[name] = self._apply_transform(points, tf)
             
-            # Simple contact detection - in practice use spatial hashing
-            for i, (px, py, pz) in enumerate(zip(obj_particles.x, 
-                                                obj_particles.y, 
-                                                obj_particles.z)):
-                # Find nearest boundary particle
-                dists = np.sqrt(
-                    (px - boundary_particles.x)**2 +
-                    (py - boundary_particles.y)**2 +
-                    (pz - boundary_particles.z)**2
-                )
-                min_dist = np.min(dists)
-                
-                if min_dist < self.solver.kernel.radius:
+            # Update solver particles
+            if f'hand_boundary_{name}' in self.solver.particles.arrays:
+                arr = self.solver.particles[f'hand_boundary_{name}']
+                arr.x, arr.y, arr.z = points[:,0], points[:,1], points[:,2]
+
+    def _get_link_tf(self, link_name):
+        """Get current transform for a robot link"""
+        joint_array = np.array([self.joint_positions.get(f'joint_{i}', 0) 
+                              for i in range(16)])
+        mode = 'left' if 'left' in link_name.lower() else \
+               'right' if 'right' in link_name.lower() else 'mid'
+        return get_fk(joint_array, self.hand_origin, mode)
+
+    def _apply_transform(self, points, tf):
+        """Apply 4x4 transform to point cloud"""
+        homog = np.column_stack([points, np.ones(len(points))])
+        return (tf @ homog.T).T[:,:3]
+
+    def step(self):
+        """Advance simulation by one timestep"""
+        self.solver.step()
+
+    def get_contacts(self):
+        """Detect contacts between object and hand"""
+        contacts = []
+        obj = self.solver.particles.arrays[0]  # Deformable object
+        
+        for name in self.boundaries:
+            boundary = self.solver.particles[f'hand_boundary_{name}']
+            dists = np.sqrt(
+                (obj.x[:,None] - boundary.x)**2 +
+                (obj.y[:,None] - boundary.y)**2 +
+                (obj.z[:,None] - boundary.z)**2
+            )
+            min_dists = np.min(dists, axis=1)
+            
+            for i, d in enumerate(min_dists):
+                if d < self.scheme.h0:
                     contacts.append({
                         'particle_id': i,
-                        'boundary': boundary_name,
-                        'position': [px, py, pz],
-                        'force': self._calculate_repulsion_force(min_dist)
+                        'boundary': name,
+                        'position': [obj.x[i], obj.y[i], obj.z[i]],
+                        'force': max(0, 1e6 * (self.scheme.h0 - d))  # Linear repulsion
                     })
-        
         return contacts
-    
-    def _calculate_repulsion_force(self, distance):
-        """Simple force model based on penetration distance"""
-        kernel_radius = self.solver.kernel.radius
-        if distance >= kernel_radius:
-            return 0.0
-        return (kernel_radius - distance) * 1000  # Arbitrary stiffness
+
+    def visualize(self):
+        """Launch interactive viewer"""
+        viewer(self.solver.particles, solver=self.solver)
