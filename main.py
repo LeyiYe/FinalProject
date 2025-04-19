@@ -1,6 +1,7 @@
 from core.physics.panda_physics import PandaPhysics
 from core.utils.soft_object import create_soft_cube
-from pysph.tools.interactive import write_output
+from pysph.solver.utils import dump
+import os
 
 def main():
     # 1. Initialize objects
@@ -20,7 +21,8 @@ def main():
 
         # 3. Write output every 5 steps
         if step % 5 == 0:
-            write_output(physics.solver.particles, output_dir, step)
+            filename = os.path.join(output_dir, f"panda_grasp_{step:05d}.npz")
+            dump(filename, physics.solver.particles, solver_data={"t": physics.solver.t})
 
 if __name__ == "__main__":
     main()
