@@ -6,7 +6,7 @@ import os
 def main():
     # 1. Initialize objects
     cube = create_soft_cube(size=0.1, resolution=15, density=800)
-    physics = PandaPhysics("core/robot/hand.urdf", cube)
+    physics = PandaPhysics("franka_description/robots/common/hand.urdf", cube)
 
     output_dir = "output/panda_grasp"
     os.makedirs(output_dir, exist_ok=True)
