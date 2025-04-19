@@ -27,12 +27,27 @@ class URDFProcessor:
                     rpy = origin.get('rpy', '0 0 0').split()
                     rot = euler2mat(*[float(x) for x in rpy])
                 
-                collisions.append({
-                    'type': next(iter(geo)),  # box, sphere, cylinder, mesh
-                    'params': geo.find(next(iter(geo))).attrib,
-                    'position': pos,
-                    'rotation': rot
-                })
+                if geo is not None:
+                    # Get the first geometry child (box, sphere, cylinder, mesh)
+                    geo_type = None
+                    geo_params = {}
+                    for child in geo:
+                        geo_type = child.tag
+                        geo_params = child.attrib
+                        break  # Only process the first geometry element
+                    
+                    if geo_type is not None:
+                        # Handle package:// paths if present
+                        if geo_type == 'mesh' and 'filename' in geo_params:
+                            geo_params['filename'] = geo_params['filename'].replace(
+                                'package://franka_description/', '')
+                        
+                        collisions.append({
+                            'type': geo_type,
+                            'params': geo_params,
+                            'position': pos,
+                            'rotation': rot
+                        })
             
             links[link_name] = {'collisions': collisions}
         return links
