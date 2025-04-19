@@ -5,7 +5,7 @@ from pysph.solver.solver import Solver
 from pysph.base.utils import get_particle_array
 from transforms3d.euler import euler2mat
 from core.robot.urdf_processor import URDFProcessor
-from panda_fk import get_fk, wedge, skew
+from core.physics.panda_fk import get_fk, wedge, skew
 
 class PandaPhysics:
     def __init__(self, urdf_file, particle_array):
