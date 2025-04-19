@@ -5,7 +5,7 @@ from pysph.sph.solid_mech.basic import ElasticSolidsScheme
 from pysph.base.utils import get_particle_array
 from core.utils.urdf_processor import URDFProcessor
 from core.physics.panda_fk import get_fk
-from pysph.tools.ipy_viewer import viewer
+from pysph.tools.ipy_viewer import viewer2D
 
 class PandaPhysics(Application):
     def __init__(self, urdf_file, particle_array):
@@ -193,4 +193,5 @@ class PandaPhysics(Application):
 
     def visualize(self):
         """Launch interactive viewer"""
-        viewer(self.solver.particles, solver=self.solver)
+        viewer = viewer2D(self.solver.particles, solver=self.solver)
+        viewer.interactive_plot()
