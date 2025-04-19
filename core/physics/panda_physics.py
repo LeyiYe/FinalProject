@@ -1,7 +1,7 @@
 import numpy as np
 import pysph
 from scipy.linalg import expm
-from pysph.sph.solver import Solver
+from pysph.sph.solver.solver import Solver
 from pysph.base.utils import utils
 from transforms3d.euler import euler2mat
 from core.robot.urdf_processor import URDFProcessor
