@@ -85,7 +85,7 @@ class PandaPhysics:
     def _setup_solver(self, particle_array):
         """Configure PySPH solver with particles and boundaries"""
         solver = Solver()
-        solver.add_particles(particle_array)
+        solver.append_particle_arrays([particle_array])
         
         for name, boundary in self.boundaries.items():
             # Create boundary particle array
