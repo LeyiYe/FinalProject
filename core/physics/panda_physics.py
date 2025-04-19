@@ -150,12 +150,12 @@ class PandaPhysics(Application):
                 arr = self.solver.particles[f'hand_boundary_{name}']
                 arr.x, arr.y, arr.z = points[:,0], points[:,1], points[:,2]
 
-def _get_link_tf(self, link_name):
-    joint_array = np.array([self.joint_positions.get(f'joint_{i}', 0.0)
-                          for i in range(16)])
-    mode = 'left' if 'left' in link_name.lower() else \
-           'right' if 'right' in link_name.lower() else 'mid'
-    return get_fk(joint_array, self.hand_origin, mode)
+    def _get_link_tf(self, link_name):
+        joint_array = np.array([self.joint_positions.get(f'joint_{i}', 0.0)
+                            for i in range(16)])
+        mode = 'left' if 'left' in link_name.lower() else \
+            'right' if 'right' in link_name.lower() else 'mid'
+        return get_fk(joint_array, self.hand_origin, mode)
 
     def _apply_transform(self, points, tf):
         """Apply 4x4 transform to point cloud"""
