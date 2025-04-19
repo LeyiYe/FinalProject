@@ -1,8 +1,8 @@
-# panda_physics.py
 import numpy as np
+import pysph
 from scipy.linalg import expm
 from pysph.sph.solver import Solver
-from pysph.base.utils import get_particle_array
+from pysph.base.utils import utils
 from transforms3d.euler import euler2mat
 from core.robot.urdf_processor import URDFProcessor
 from panda_fk import get_fk, wedge, skew
@@ -89,7 +89,7 @@ class PandaPhysics:
         
         for name, boundary in self.boundaries.items():
             # Create boundary particle array
-            boundary_particles = get_particle_array(
+            boundary_particles = utils.get_particle_array(
                 name=name,
                 x=boundary[:,0],
                 y=boundary[:,1],
