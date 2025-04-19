@@ -6,14 +6,14 @@ import numpy as np
 
 def main():
     # 1. Initialize soft cube with proper properties
+    # For soft rubber-like cube
     cube = create_soft_cube(
-        size=0.1,
-        resolution=15,
-        density=1200,  # Should match rho0 in PandaPhysics
-        h=0.005,       # Smoothing length
-        E=1e6,         # Young's modulus (1 MPa)
-        nu=0.45        # Poisson's ratio
-    )
+    size=0.1,
+    resolution=15,
+    density=1200,       # kg/m³ (silicone rubber)
+    youngs_modulus=1e6, # 1 MPa (soft rubber)
+    poissons_ratio=0.45 # Nearly incompressible
+)
     
     # 2. Initialize physics
     physics = PandaPhysics(

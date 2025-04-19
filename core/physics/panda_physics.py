@@ -1,9 +1,9 @@
 import numpy as np
 from transforms3d.euler import euler2mat
 from pysph.solver.application import Application
-from pysph.sph.solid_mech.basic import SolidMechScheme
+from pysph.sph.solid_mech.basic import ElasticSolidsScheme
 from pysph.base.utils import get_particle_array
-from core.robot.urdf_processor import URDFProcessor
+from core.utils.urdf_processor import URDFProcessor
 from core.physics.panda_fk import get_fk
 from pysph.tools.ipy_viewer import viewer
 
@@ -33,21 +33,33 @@ class PandaPhysics(Application):
 
     def _prepare_object_particles(self, particle_array):
         """Add required properties for deformable object"""
-        particle_array.add_property('tag', data=np.zeros(len(particle_array.x)))
-        particle_array.add_constant('E', 1e6)  # Young's modulus (1 MPa)
-        particle_array.add_constant('nu', 0.45)  # Poisson's ratio
-        return particle_array
+        # Convert to elastic dynamics particle array
+        from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
+        elastic_array = get_particle_array_elastic_dynamics(
+            x=particle_array.x,
+            y=particle_array.y,
+            z=particle_array.z,
+            m=particle_array.m,
+            h=particle_array.h,
+            rho=particle_array.rho,
+            constants={
+                'E': 1e6,    # Young's modulus (1 MPa)
+                'nu': 0.45,  # Poisson's ratio
+                'rho_ref': 1200  # Reference density
+            }
+        )
+        elastic_array.add_property('tag', data=np.zeros(len(particle_array.x)))
+        return elastic_array
 
     def _create_scheme(self):
-        """Configure SolidMechScheme for deformable solids"""
-        return SolidMechScheme(
-            solids=['object'],  # Matches particle array name
-            boundaries=['hand_boundary'],
+        """Configure elastic solids scheme"""
+        return ElasticSolidsScheme(
+            elastic_solids=['object'],  # Deformable object
+            solids=['hand_boundary'],   # Robot hand
             dim=3,
-            rho0=1200,  # kg/m^3 (silicone rubber density)
-            h0=0.005,   # Smoothing length
-            alpha=0.2,  # Tensile instability correction
-            beta=0.2    # Artificial stress
+            artificial_stress_eps=0.3,
+            alpha=1.0,
+            beta=1.0
         )
 
     def create_particles(self):
