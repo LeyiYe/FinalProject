@@ -30,6 +30,8 @@ class PandaPhysics(Application):
         # Configure solver
         self.scheme = self._create_scheme()
 
+        self.setup()
+
 
     def _prepare_object_particles(self, particle_array):
         """Add required properties for deformable object"""
