@@ -1,22 +1,3 @@
-# Copyright (c) 2020 NVIDIA Corporation
-
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-# OTHER DEALINGS IN THE SOFTWARE.
 """Helper functions for forward kinematics of the Panda gripper."""
 
 import numpy as np
@@ -63,11 +44,16 @@ def jacobian(full_joints, hand_origin):
 
 
 def get_fk(joints, hand_origin, mode="left"):
-    """Get the forward kinematics of the hand from joint angles."""
-    hand_origin_pos = np.array(
-        [hand_origin.p.x, hand_origin.p.y, hand_origin.p.z])
-    finger_origin_pos = np.array(
-        [hand_origin.p.x, hand_origin.p.y, hand_origin.p.z + 0.112])
+    """Get the forward kinematics of the hand from joint angles.
+    
+    Args:
+        joints: Array of 16 joint angles
+        hand_origin: 4x4 numpy array transformation matrix
+        mode: 'left', 'right', 'mid', 'slides' or 'all'
+    """
+    # Extract position from transformation matrix
+    hand_origin_pos = hand_origin[:3, 3]
+    finger_origin_pos = hand_origin_pos + np.array([0, 0, 0.112])
 
     # Prismatic joints
     xi_x = np.array([1, 0, 0, 0, 0, 0])
@@ -143,6 +129,5 @@ def get_fk(joints, hand_origin, mode="left"):
         slide_y = e0 @ e1 @ e2 @ e3 @ e4 @ e5 @ e6 @ e7 @ e8 @ e9 @ e10
         slide_z = e0 @ e1 @ e2 @ e3 @ e4 @ e5 @ e6 @ e7 @ e8 @ e9 @ e10 @ e11
         return slide_x, slide_y, slide_z
-
-    else:
+    else:  # mode == "all"
         return list_xis, list_transforms
