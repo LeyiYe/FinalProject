@@ -5,7 +5,8 @@ from pysph.sph.solid_mech.basic import ElasticSolidsScheme
 from pysph.base.utils import get_particle_array
 from core.utils.urdf_processor import URDFProcessor
 from core.physics.panda_fk import get_fk
-from pysph.tools.ipy_viewer import Viewer2D
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 class PandaPhysics(Application):
     def __init__(self, urdf_file, particle_array):
@@ -15,7 +16,6 @@ class PandaPhysics(Application):
             urdf_file: Path to Panda hand URDF 
             particle_array: PySPH array for deformable object
         """
-        # Initialize PySPH Application
         super().__init__()
         
         # Robot setup
@@ -27,15 +27,35 @@ class PandaPhysics(Application):
         self.particle_array = self._prepare_object_particles(particle_array)
         self.boundaries = self._create_boundaries()
         
-        # Configure solver
+        # Configure scheme
         self.scheme = self._create_scheme()
-
+        
+        # Create particles and solver
+        self.create_particles()
+        self.create_solver()
+        
+        # Complete setup
         self.setup()
 
+    def create_solver(self):
+        """Create and configure the solver"""
+        from pysph.base.kernels import CubicSpline
+        from pysph.sph.integrator import EPECIntegrator
+        from pysph.sph.integrator_step import SolidMechStep
+        
+        kernel = CubicSpline(dim=3)
+        integrator = EPECIntegrator(elastic=SolidMechStep())
+        
+        solver = self.create_solver(
+            kernel=kernel,
+            integrator=integrator,
+            dt=1e-5,  # Time step
+            tf=1.0    # Final time
+        )
+        return solver
 
     def _prepare_object_particles(self, particle_array):
         """Add required properties for deformable object"""
-        # Convert to elastic dynamics particle array
         from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
         elastic_array = get_particle_array_elastic_dynamics(
             x=particle_array.x,
@@ -73,7 +93,7 @@ class PandaPhysics(Application):
         boundaries = []
         for name, points in self.boundaries.items():
             arr = get_particle_array(
-                name='hand_boundary',
+                name=f'hand_boundary_{name}',
                 x=points[:,0], y=points[:,1], z=points[:,2],
                 m=np.ones(len(points))*0.1,  # Mass
                 h=np.ones(len(points))*0.005, # Smoothing length
@@ -153,10 +173,11 @@ class PandaPhysics(Application):
                 arr.x, arr.y, arr.z = points[:,0], points[:,1], points[:,2]
 
     def _get_link_tf(self, link_name):
+        """Get current transform for a robot link"""
         joint_array = np.array([self.joint_positions.get(f'joint_{i}', 0.0)
-                            for i in range(16)])
+                              for i in range(16)])
         mode = 'left' if 'left' in link_name.lower() else \
-            'right' if 'right' in link_name.lower() else 'mid'
+               'right' if 'right' in link_name.lower() else 'mid'
         return get_fk(joint_array, self.hand_origin, mode)
 
     def _apply_transform(self, points, tf):
@@ -193,6 +214,22 @@ class PandaPhysics(Application):
         return contacts
 
     def visualize(self):
-        """Launch interactive viewer"""
-        viewer = Viewer2D(self.solver.particles, solver=self.solver)
-        viewer.interactive_plot()
+        """Basic 3D visualization using matplotlib"""
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        # Plot object particles
+        obj = self.solver.particles.arrays[0]
+        ax.scatter(obj.x, obj.y, obj.z, c='blue', s=1, label='Object')
+        
+        # Plot hand particles
+        for name in self.boundaries:
+            if f'hand_boundary_{name}' in self.solver.particles.arrays:
+                hand = self.solver.particles.arrays[f'hand_boundary_{name}']
+                ax.scatter(hand.x, hand.y, hand.z, c='red', s=1, label='Hand')
+        
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        plt.legend()
+        plt.show()
