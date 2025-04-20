@@ -6,6 +6,7 @@ from pysph.base.utils import get_particle_array
 from pysph.base.kernels import CubicSpline
 from core.utils.urdf_processor import URDFProcessor
 from core.physics.panda_fk import get_fk
+from pysph.solver.utils import load
 
 class PandaGraspSimulation(Application):
     def initialize(self):
@@ -54,8 +55,7 @@ class PandaGraspSimulation(Application):
             dim=3,
             artificial_stress_eps=0.3,
             alpha=1.0,
-            beta=1.0,
-            h0=self.dx*self.hdx
+            beta=1.0
         )
 
     def configure_scheme(self):
@@ -243,7 +243,6 @@ class PandaGraspSimulation(Application):
             return
             
         # Load results and analyze
-        from pysph.solver.utils import load
         data = load(info_fname)
         
         # Example analysis - plot final state
