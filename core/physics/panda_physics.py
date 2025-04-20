@@ -51,7 +51,7 @@ class PandaGraspSimulation(Application):
         """Create the SPH scheme"""
         return ElasticSolidsScheme(
             elastic_solids=['object'],
-            solids=['hand_boundary'],
+            solids=[],
             dim=3,
             artificial_stress_eps=0.3,
             alpha=1.0,
