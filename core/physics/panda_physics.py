@@ -159,7 +159,7 @@ class PandaGraspSimulation(Application):
             theta, phi = np.mgrid[0:2*np.pi:10j, 0:np.pi:10j]
             points = np.vstack([
                 radius*np.cos(theta)*np.sin(phi),
-                radius*np.sin(theta)*sin(phi),
+                radius*np.sin(theta)*np.sin(phi),
                 radius*np.cos(phi)
             ]).reshape(3,-1).T
             
