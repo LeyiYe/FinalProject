@@ -24,10 +24,6 @@ class PandaGraspSimulation(Application):
         # Hand configuration
         self.hand_origin = np.eye(4)
         self.joint_positions = {}
-        
-        # Load URDF
-        self.urdf_processor = URDFProcessor(self.options.urdf_file)
-        self.boundaries = self._create_boundaries()
 
     def add_user_options(self, group):
         """Add command line options for the application"""
@@ -44,6 +40,11 @@ class PandaGraspSimulation(Application):
             "--resolution", action="store", type=int, dest="resolution",
             default=15, help="Particles per cube dimension"
         )
+
+    def consume_user_options(self):
+        # Load URDF
+        self.urdf_processor = URDFProcessor(self.options.urdf_file)
+        self.boundaries = self._create_boundaries()
 
     def create_scheme(self):
         """Create the SPH scheme"""
