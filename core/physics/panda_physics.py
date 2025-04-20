@@ -182,8 +182,8 @@ class PandaGraspSimulation(Application):
         tf[:3,3] = pos
         return (tf @ homog.T).T[:,:3]
 
-    def pre_step(self, solver):
-        """Called before each timestep - update hand position"""
+    """def pre_step(self, solver):
+        """"""Called before each timestep - update hand position""""""
         # Update finger positions based on simulation time
         finger_pos = min(0.04, 0.04 * (solver.t / self.tf))
         self.joint_positions = {
@@ -201,7 +201,7 @@ class PandaGraspSimulation(Application):
             arr_name = f'hand_boundary_{name}'
             if arr_name in solver.particles.arrays:
                 arr = solver.particles[arr_name]
-                arr.x[:], arr.y[:], arr.z[:] = transformed_points.T
+                arr.x[:], arr.y[:], arr.z[:] = transformed_points.T"""
 
     def post_step(self, solver):
         """Called after each timestep - monitor contacts"""
