@@ -76,11 +76,11 @@ class PandaFSM:
         
         # Coupling parameters
         self.coupling_stiffness = 1e8  # N/m (tune based on material)
-        self.gripper_influence_radius = 0.2  # meters
+        self.gripper_influence_radius = 0.02  # meters
         self.last_gripper_pos = np.zeros(3)
 
         self.sph_visual_shapes = []  # To store PyBullet visual shapes
-        self.particle_radius = 0.02  # Visual radius of particles
+        self.particle_radius = 0.003  # Visual radius of particles
         
         # Initialize SPH simulation
         self._init_sph_simulation()
@@ -207,7 +207,7 @@ class PandaFSM:
         self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
-        
+
         # Get gripper center position
         gripper_center = self.get_gripper_opening_center()
         
@@ -291,6 +291,8 @@ class PandaFSM:
 
     def _compute_sph_reaction_force(self, gripper_pos):
         """Calculate reaction force from SPH particles"""
+        print(f"Gripper pos: {gripper_pos}")
+        print(f"Particle range: x[{min(self.sph_particles.x):.3f}-{max(self.sph_particles.x):.3f}]")
         neighbor_indices = self.sph_kdtree.query_ball_point(
             gripper_pos,
             self.gripper_influence_radius
@@ -322,7 +324,8 @@ class PandaFSM:
             
             spring_force = -self.coupling_stiffness * r
             total_force += (stress_force + spring_force) * self.sph_particles.m[i]
-            
+        
+        print(f"Computed force: {total_force}")
         return total_force
 
     def run(self):
@@ -388,6 +391,7 @@ class PandaFSM:
     
     def _open_state(self):
         """Open gripper state"""
+        print("OPEN STATE - Moving gripper open")
         self.open_counter += 1
         
         # Open gripper
@@ -400,6 +404,7 @@ class PandaFSM:
     
     def _close_state(self, F_curr, gripper_pos):
         """Close gripper until contact"""
+        print("CLOSE STATE - Moving gripper close")
         closing_speed = -0.7
         
         # Close fingers until contact
@@ -426,7 +431,7 @@ class PandaFSM:
     
     def _start_closer_state(self, gripper_pos):
         """Reset and close to near-contact position"""
-        closing_speed = -0.7
+        print("STAR CLOSING STATE")
         
         # Close until near contact position
         left_vel = closing_speed if gripper_pos[0] < self.franka_positions_at_contact[0] + 0.003 else 0
@@ -440,6 +445,7 @@ class PandaFSM:
     
     def _close_soft_state(self, F_curr):
         """Soft closing with force checking"""
+        print("CLOSE SOFT STATE")
         # Adjust closing speed based on failures
         first_speed = 0.25
         closing_speed = -first_speed / (self.close_fails + 1)
@@ -469,6 +475,7 @@ class PandaFSM:
     
     def _squeeze_state(self, F_curr, gripper_pos):
         """Squeeze to desired force"""
+        print("SQUEEZE STATE")
         self.squeeze_counter += 1
         
         # Torque control to achieve desired force
@@ -501,6 +508,7 @@ class PandaFSM:
     
     def _hang_state(self, F_curr):
         """Hang object to test grasp"""
+        print("HANG STATE")
         self.hang_counter += 1
         
         # Maintain force with torque control
@@ -528,6 +536,7 @@ class PandaFSM:
 
     def _squeeze_holding_state(self):
         """Holding squeeze with gradually increasing torque"""
+        print("SQUEEZE HOLDING STATE")
         self.squeeze_holding_counter += 1
         
         # Gradually increase torque
@@ -544,6 +553,7 @@ class PandaFSM:
     
     def _squeeze_no_gravity_state(self, F_curr, gripper_pos):
         """Squeeze without gravity effects"""
+        print("SQUEEZE NO GRAVITY STATE")
         self.squeeze_no_gravity_counter += 1
         
         # Periodically increase torque
