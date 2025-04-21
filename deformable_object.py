@@ -1,5 +1,5 @@
 from pysph.base.kernels import CubicSpline
-from pysph.sph.simple_sweep import SimpleSweep
+from pysph.solver.solver import Solver
 from pysph.solver.application import Application
 from pysph.sph.integrator import EPECIntegrator
 from pysph.sph.equation import Group
@@ -94,12 +94,8 @@ class DeformableObjectSim(Application):
     def create_solver(self):
         kernel = CubicSpline(dim=3)
         integrator = EPECIntegrator('object')
-        solver = SimpleSweep(
-            kernel=kernel,
-            dim=3,
-            integrator=integrator,
-            dt=1e-5,
-            tf=1.0,
-            adaptive_timestep=True
-        )
+        solver = Solver(dim=2, integrator=integrator, kernel=kernel,
+                n_damp=50, tf=1.0, dt=1e-3, adaptive_timestep=True,
+                pfreq=100, cfl=0.5, output_at_times=[1e-1, 1.0])
+        
         return solver
