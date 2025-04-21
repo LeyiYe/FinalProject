@@ -261,6 +261,8 @@ class PandaFSM:
             
             # --- SPH Coupling ---
             self._apply_gripper_to_sph(gripper_pos)
+
+            print(dir(self.sph_solver))
             
             # Step SPH (substepping for stability)
             for _ in range(5):
@@ -483,7 +485,7 @@ class PandaFSM:
             print("Squeeze no gravity complete")
             self.state = PandaState.DONE
 
-            
+
     def visualize_force_feedback(self):
         """Plot force magnitude over time"""
         import matplotlib.pyplot as plt
