@@ -200,7 +200,7 @@ class PandaFSM:
         left_vel = closing_speed if not self.left_has_contacted else 0
         right_vel = closing_speed if not self.right_has_contacted else 0
         
-        self.set_gripper_velocity(left_vel, right_vel)
+        self.controller.set_gripper_velocity(left_vel, right_vel)
         
         # Check if closed too far without contact
         if (not (self.left_has_contacted or self.right_has_contacted) and 
@@ -221,7 +221,7 @@ class PandaFSM:
         left_vel = closing_speed if gripper_pos[0] < self.franka_positions_at_contact[0] + 0.003 else 0
         right_vel = closing_speed if gripper_pos[1] < self.franka_positions_at_contact[1] + 0.003 else 0
         
-        self.set_gripper_velocity(left_vel, right_vel)
+        self.controller.set_gripper_velocity(left_vel, right_vel)
         
         # Transition when close to contact position
         if all(p < pos + 0.004 for p, pos in zip(gripper_pos, self.franka_positions_at_contact)):
@@ -250,7 +250,7 @@ class PandaFSM:
         left_vel = closing_speed if not left_in_contact else 0
         right_vel = closing_speed if not right_in_contact else 0
         
-        self.set_gripper_velocity(left_vel, right_vel)
+        self.controller.set_gripper_velocity(left_vel, right_vel)
         
         # Transition when both fingers have contacted
         if left_in_contact and right_in_contact:
