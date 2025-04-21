@@ -262,8 +262,6 @@ class PandaFSM:
             # --- SPH Coupling ---
             self._apply_gripper_to_sph(gripper_pos)
 
-            print(dir(self.sph_solver))
-            
             # Step SPH (substepping for stability)
             """for _ in range(5):
                 self.sph_solver.solve(1.0/1200.0)"""  # Smaller timesteps
