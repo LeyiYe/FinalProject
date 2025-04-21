@@ -402,7 +402,8 @@ class PandaFSM:
             # Compute and apply reaction forces
             reaction_force = self._compute_sph_reaction_force(gripper_pos)
             """self.force_feedback.append(reaction_force)"""
-            
+            self.force_feedback.append(reaction_force)
+
             p.applyExternalForce(
                 self.panda,
                 self.joint_info['panda_hand_joint']['index'],
@@ -723,12 +724,25 @@ class PandaFSM:
 
     def visualize_force_feedback(self):
         """Plot force magnitude over time"""
+        if not self.force_feedback:
+            print("No force feedback data recorded!")
+            return
+
         import matplotlib.pyplot as plt
-        forces = np.linalg.norm(self.force_feedback, axis=1)
-        plt.plot(forces)
+        forces = np.array(self.force_feedback)  # Convert to NumPy array
+        
+        # If forces is 1D (single component), plot directly
+        if forces.ndim == 1:
+            plt.plot(forces, label="Force (1D)")
+        else:
+            # Compute norm only if forces are 2D (N x 3)
+            forces = np.linalg.norm(forces, axis=1)
+            plt.plot(forces, label="Force Magnitude")
+        
         plt.title("Gripper Reaction Forces")
         plt.xlabel("Time step")
         plt.ylabel("Force (N)")
+        plt.legend()
         plt.show()
 
 
