@@ -117,7 +117,7 @@ class PandaFSM:
             baseMass=0,  # Static platform
             baseCollisionShapeIndex=collision_shape,
             baseVisualShapeIndex=platform_shape,
-            basePosition=[0, 0, -platform_height/2]  # Position at z=0
+            basePosition=[0, 0, 0.5]  # Position at z=0
         )
 
     def _position_object_on_platform(self):
