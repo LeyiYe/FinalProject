@@ -265,8 +265,8 @@ class PandaFSM:
             print(dir(self.sph_solver))
             
             # Step SPH (substepping for stability)
-            for _ in range(5):
-                self.sph_solver.step(1.0/1200.0)  # Smaller timesteps
+            """for _ in range(5):
+                self.sph_solver.solve(1.0/1200.0)"""  # Smaller timesteps
             
             # Compute and apply reaction forces
             reaction_force = self._compute_sph_reaction_force(gripper_pos)
