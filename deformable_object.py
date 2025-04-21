@@ -11,45 +11,49 @@ from pysph.sph.wc.basic import (
     TaitEOS, MomentumEquation
 )
 from pysph.sph.solid_mech.basic import (
-    HookesDeviatoricStressRate,
+    HookesDeviatoricStressRate,get_particle_array_elastic_dynamics,
     MomentumEquationWithStress, MonaghanArtificialStress
 )
 import numpy as np
 
 class DeformableObjectSim(Application):
+
     def create_particles(self):
-        # Define a deformable cube as SPH particles
         dx = 0.05
         x, y, z = np.mgrid[-0.5:0.5:dx, -0.5:0.5:dx, -0.5:0.5:dx]
         x = x.ravel()
         y = y.ravel()
         z = z.ravel()
         
-        # Initialize stress tensor components (for 3D)
-        n = len(x)
-        zeros = np.zeros_like(x)
-        
-        return self.get_particles(
-            arrays={
-                'x': x, 'y': y, 'z': z,
-                'u': zeros,  # velocity x
-                'v': zeros,  # velocity y
-                'w': zeros,  # velocity z
-                'rho': np.ones_like(x) * 1000,  # density
-                'm': np.ones_like(x) * dx**3 * 1000,  # mass
-                'h': np.ones_like(x) * dx * 1.2,  # smoothing length
-                'p': zeros,  # pressure
-                # Stress tensor components
-                's00': zeros, 's01': zeros, 's02': zeros,
-                's10': zeros, 's11': zeros, 's12': zeros,
-                's20': zeros, 's21': zeros, 's22': zeros,
-                # Elastic properties
-                'e': np.ones_like(x) * 1e6,  # Young's modulus (Pa)
-                'nu': np.ones_like(x) * 0.45,  # Poisson's ratio
-                'cs': np.ones_like(x) * 50.0,  # Speed of sound
+        # Create particle array with elastic dynamics properties
+        particles = get_particle_array_elastic_dynamics(
+            constants={
+                'E': 1e6,       # Young's modulus (Pa)
+                'nu': 0.45,     # Poisson's ratio
+                'rho_ref': 1000 # Reference density (kg/m³)
             },
-            name='object'
+            name='object',
+            x=x, y=y, z=z,
+            u=np.zeros_like(x),
+            v=np.zeros_like(x),
+            w=np.zeros_like(x),
+            rho=np.ones_like(x)*1000,
+            m=np.ones_like(x)*(dx**3)*1000,
+            h=np.ones_like(x)*dx*1.2,
+            p=np.zeros_like(x),
+            # Initialize stress tensor components to zero
+            s00=np.zeros_like(x),
+            s01=np.zeros_like(x),
+            s02=np.zeros_like(x),
+            s11=np.zeros_like(x),
+            s12=np.zeros_like(x),
+            s22=np.zeros_like(x)
         )
+        
+        # Set additional properties if needed
+        particles.cs[:] = 50.0  # Speed of sound
+        
+        return particles
 
     def create_equations(self):
         equations = [
@@ -90,9 +94,10 @@ class DeformableObjectSim(Application):
         return equations
 
     def create_solver(self):
-        kernel = CubicSpline(dim=3)
+
+        # Use EPECIntegrator for elastic dynamics
         integrator = EPECIntegrator(elastic=WCSPHStep())
-        solver = Solver(dim=3, integrator=integrator, kernel=kernel,
+        solver = Solver(dim=3, integrator=integrator, kernel=CubicSpline(dim=3),
                 n_damp=50, tf=1.0, dt=1e-3, adaptive_timestep=True,
                 pfreq=100, cfl=0.5, output_at_times=[1e-1, 1.0])
         
