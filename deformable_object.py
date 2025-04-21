@@ -9,8 +9,8 @@ from pysph.sph.basic_equations import (
 from pysph.sph.wc.basic import (
     TaitEOS, MomentumEquation
 )
-from pysph.sph.solid_mech import (
-    HookesDeviatoricStressRate, StressRate,
+from pysph.sph.solid_mech.basic import (
+    HookesDeviatoricStressRate,
     MomentumEquationWithStress, MonaghanArtificialStress
 )
 import numpy as np
@@ -64,9 +64,6 @@ class DeformableObjectSim(Application):
                 
                 # Stress rate equations (Hooke's law)
                 HookesDeviatoricStressRate(
-                    dest='object', sources=None
-                ),
-                StressRate(
                     dest='object', sources=None
                 ),
                 
