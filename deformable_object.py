@@ -19,7 +19,7 @@ import numpy as np
 class DeformableObjectSim(Application):
 
     def create_particles(self):
-        dx = 0.002  # Particle spacing (1mm)
+        dx = 0.01  # Particle spacing (1mm)
         object_size = 0.04  # 5cm cube
     
     # Create smaller grid
@@ -38,8 +38,8 @@ class DeformableObjectSim(Application):
         # Create particle array with elastic dynamics properties
         particles = get_particle_array_elastic_dynamics(
             constants={
-                'E': 1e6,       # Young's modulus (Pa)
-                'nu': 0.45,     # Poisson's ratio
+                'E': 1e5,       # Young's modulus (Pa)
+                'nu': 0.49,     # Poisson's ratio
                 'rho_ref': density # Reference density (kg/m³)
             },
             name='object',
