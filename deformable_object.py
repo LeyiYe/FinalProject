@@ -20,7 +20,7 @@ class DeformableObjectSim(Application):
 
     def create_particles(self):
         dx = 0.01  # Particle spacing (1mm)
-        object_size = 0.04  # 5cm cube
+        object_size = 0.05  # 5cm cube
     
     # Create smaller grid
         x, y, z = np.mgrid[
@@ -32,6 +32,12 @@ class DeformableObjectSim(Application):
         y = y.ravel()
         z = z.ravel()
 
+        # # Filter out some particles for performance if needed
+        # mask = (x**2 + y**2 + z**2) <= (object_size/2)**2
+        # x = x[mask]
+        # y = y[mask]
+        # z = z[mask]
+
         density = 1000  # kg/m³
         particle_mass = (dx**3) * density
         
@@ -39,7 +45,7 @@ class DeformableObjectSim(Application):
         particles = get_particle_array_elastic_dynamics(
             constants={
                 'E': 1e5,       # Young's modulus (Pa)
-                'nu': 0.49,     # Poisson's ratio
+                'nu': 0.3,     # Poisson's ratio
                 'rho_ref': density # Reference density (kg/m³)
             },
             name='object',
@@ -59,53 +65,37 @@ class DeformableObjectSim(Application):
             s12=np.zeros_like(x),
             s22=np.zeros_like(x)
         )
-        
         return particles
+
 
     def create_equations(self):
         equations = [
             Group(equations=[
-                # Continuity equation
-                ContinuityEquation(dest='object', sources=['object']),
-                
-                # Equation of state (Tait equation for weakly compressible)
                 TaitEOS(
                     dest='object', sources=None, 
-                    rho0=1000.0, c0=50.0, gamma=7.0
+                    rho0=1000.0, c0=100.0, gamma=7.0  # Higher sound speed
                 ),
-                
-                # Stress rate equations (Hooke's law)
-                HookesDeviatoricStressRate(
-                    dest='object', sources=None
-                ),
-                
-                # Momentum equation with stress terms
                 MomentumEquationWithStress(
                     dest='object', sources=['object'],
-                    alpha=0.1, beta=0.1
+                    alpha=0.2, beta=0.2  # Higher viscosity
                 ),
-                
-                # Artificial stress to prevent tensile instability
                 MonaghanArtificialStress(
                     dest='object', sources=['object'],
-                    eps=0.3
-                ),
-                
-                # XSPH for smoother motion
-                XSPHCorrection(
-                    dest='object', sources=['object'],
-                    eps=0.5
+                    eps=0.5  # Increased artificial stress
                 )
             ], real=True)
         ]
         return equations
 
+
     def create_solver(self):
 
         # Use EPECIntegrator for elastic dynamics
+        # dt = time step
         integrator = EPECIntegrator(elastic=WCSPHStep())
-        solver = Solver(dim=3, integrator=integrator, kernel=CubicSpline(dim=3),
-                n_damp=50, tf=1.0, dt=1e-3, adaptive_timestep=True,
-                pfreq=100, cfl=0.5, output_at_times=[1e-1, 1.0])
+        kernel = CubicSpline(dim=3)
+        solver = Solver(dim=3, integrator=integrator, kernel=kernel,
+                tf=1.0, dt=1e-4, adaptive_timestep=True,
+                cfl=0.5, output_at_times=[1e-1, 1.0])
         
         return solver
