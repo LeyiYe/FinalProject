@@ -98,7 +98,7 @@ class PandaFSM:
     def _create_platform(self):
         """Create a platform for the object to rest on"""
         platform_height = 0.02  # 2cm thick
-        platform_size = 0.2      # 20cm square
+        platform_size = 0.5      # 20cm square
         
         # Visual shape
         platform_shape = p.createVisualShape(
@@ -117,7 +117,7 @@ class PandaFSM:
             baseMass=0,  # Static platform
             baseCollisionShapeIndex=collision_shape,
             baseVisualShapeIndex=platform_shape,
-            basePosition=[0, 0, 0.5]  # Position at z=0
+            basePosition=[0.5, -0.5, 0.5]  # Position at z=0
         )
 
     def _position_object_on_platform(self):
