@@ -75,8 +75,8 @@ class PandaFSM:
         }
         # SPH Integration Additions
         self.sph_app = DeformableObjectSim()
-        self.sph_solver = None
-        self.sph_particles = None
+        self.sph_solver = self.sph_app.create_solver()
+        self.sph_particles = self.sph_app.create_particles()
         self.sph_kdtree = None
         self.force_feedback = []
         self.gripper_poses = []
@@ -253,15 +253,16 @@ class PandaFSM:
         return gripper_center
     
     def _create_sph_visualization(self):
-        """Create efficient particle visualization using sphere instances"""
-        # Create a single visual shape template
+        """Create efficient particle visualization"""
+        if not hasattr(self, 'sph_particles') or self.sph_particles is None:
+            raise RuntimeError("SPH particles not initialized before visualization")
+            
         self.particle_shape = p.createVisualShape(
             p.GEOM_SPHERE,
             radius=self.particle_radius,
             rgbaColor=[0, 0.5, 1, 0.7]
         )
         
-        # Create multiple bodies using the same shape
         self.sph_visual_bodies = []
         for i in range(len(self.sph_particles.x)):
             body = p.createMultiBody(
