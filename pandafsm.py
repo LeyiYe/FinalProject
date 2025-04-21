@@ -120,23 +120,26 @@ class PandaFSM:
             basePosition=[0.5, -0.5, 0.5]  # Position at z=0
         )
 
+
     def _position_object_on_platform(self):
         """Center SPH object on platform"""
-        if hasattr(self, 'sph_particles'):
-            # Calculate current object center
-            mean_x = np.mean(self.sph_particles.x)
-            mean_y = np.mean(self.sph_particles.y)
-            mean_z = np.mean(self.sph_particles.z)
+        if not hasattr(self, 'sph_particles') or self.sph_particles is None:
+            return
             
-            # Shift to platform position (1cm above platform surface)
-            z_offset = 0.01  
-            self.sph_particles.x += -mean_x  # Center in x
-            self.sph_particles.y += -mean_y  # Center in y
-            self.sph_particles.z += (z_offset) - mean_z  # Position above platform
-            
-            # Update visualization if exists
-            if hasattr(self, 'sph_visual_shapes'):
-                self._update_sph_visualization()
+        # Calculate current object center
+        mean_x = np.mean(self.sph_particles.x)
+        mean_y = np.mean(self.sph_particles.y)
+        mean_z = np.mean(self.sph_particles.z)
+        
+        # Shift to platform position
+        z_offset = 0.01  
+        self.sph_particles.x += -mean_x
+        self.sph_particles.y += -mean_y 
+        self.sph_particles.z += (z_offset) - mean_z
+        
+        # Update visualization if exists
+        if hasattr(self, 'sph_visual_bodies'):
+            self._update_sph_visualization()
         
     def _init_variables(self):
         """Initialize all state variables"""
@@ -288,19 +291,6 @@ class PandaFSM:
                 ],
                 ornObj=[0, 0, 0, 1]
             )
-
-    def _update_sph_visualization(self):
-        particle_positions = np.column_stack([
-            self.sph_particles.x,
-            self.sph_particles.y,
-            self.sph_particles.z
-        ]).flatten().tolist()  # Flatten to list
-        
-        p.changeVisualShape(
-            self.sph_visual_body,
-            -1,
-            vertices=particle_positions
-        )
 
     def _update_sph_kdtree(self):
         """Update KDTree for efficient neighbor searches"""
