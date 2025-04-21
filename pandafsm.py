@@ -186,13 +186,41 @@ class PandaFSM:
         ])
         return [states[0][0], states[1][0]]
     
+    def get_gripper_opening_center(self):
+        """Calculate the center point between the gripper fingers"""
+        # Get finger joint positions
+        left_finger_pos = p.getLinkState(self.panda, 
+                                    self.joint_info['panda_finger_joint1']['index'])[0]
+        right_finger_pos = p.getLinkState(self.panda, 
+                                        self.joint_info['panda_finger_joint2']['index'])[0]
+        
+        # Calculate midpoint between fingers
+        gripper_center = [
+            (left_finger_pos[0] + right_finger_pos[0]) / 2,
+            (left_finger_pos[1] + right_finger_pos[1]) / 2,
+            (left_finger_pos[2] + right_finger_pos[2]) / 2
+        ]
+        return gripper_center
+    
     def _init_sph_simulation(self):
         """Initialize SPH simulation with visualization"""
         self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
         
-        # Create visual shapes in PyBullet
+        # Get gripper center position
+        gripper_center = self.get_gripper_opening_center()
+        
+        # Offset object position (adjust these values as needed)
+        x_offset = 0.0   # Forward/backward relative to gripper
+        y_offset = 0.0   # Left/right relative to gripper
+        z_offset = -0.03 # Up/down relative to gripper (negative = below)
+        
+        # Reposition all particles
+        self.sph_particles.x += gripper_center[0] + x_offset
+        self.sph_particles.y += gripper_center[1] + y_offset
+        self.sph_particles.z += gripper_center[2] + z_offset
+        
         self._create_sph_visualization()
         self._update_sph_kdtree()
 
