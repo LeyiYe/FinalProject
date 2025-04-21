@@ -19,26 +19,36 @@ import numpy as np
 class DeformableObjectSim(Application):
 
     def create_particles(self):
-        dx = 0.05
-        x, y, z = np.mgrid[-0.5:0.5:dx, -0.5:0.5:dx, -0.5:0.5:dx]
+        dx = 0.01
+        object_size = 0.1  # 10cm cube
+    
+    # Create smaller grid
+        x, y, z = np.mgrid[
+            -object_size/2:object_size/2:dx, 
+            -object_size/2:object_size/2:dx, 
+            -object_size/2:object_size/2:dx
+        ]
         x = x.ravel()
         y = y.ravel()
         z = z.ravel()
+
+        density = 1000  # kg/m³
+        particle_mass = (dx**3) * density
         
         # Create particle array with elastic dynamics properties
         particles = get_particle_array_elastic_dynamics(
             constants={
                 'E': 1e6,       # Young's modulus (Pa)
                 'nu': 0.45,     # Poisson's ratio
-                'rho_ref': 1000 # Reference density (kg/m³)
+                'rho_ref': density # Reference density (kg/m³)
             },
             name='object',
             x=x, y=y, z=z,
             u=np.zeros_like(x),
             v=np.zeros_like(x),
             w=np.zeros_like(x),
-            rho=np.ones_like(x)*1000,
-            m=np.ones_like(x)*(dx**3)*1000,
+            rho=np.ones_like(x)*density,
+            m=np.ones_like(x)*(dx**3)*particle_mass,
             h=np.ones_like(x)*dx*1.2,
             p=np.zeros_like(x),
             # Initialize stress tensor components to zero
