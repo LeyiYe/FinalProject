@@ -270,14 +270,13 @@ class PandaController:
                 ornObj=[0, 0, 0, 1]
             )
 
-    def _update_sph_kdtree(self):
-        """Update KDTree for efficient neighbor searches"""
-        particle_positions = np.column_stack([
-            self.sph_particles.x,
-            self.sph_particles.y,
-            self.sph_particles.z
-        ])
-        self.sph_kdtree = KDTree(particle_positions)
+    # def _update_sph_kdtree(self):
+    #     particle_positions = np.column_stack([
+    #         self.sph_particles.x,
+    #         self.sph_particles.y,
+    #         self.sph_particles.z
+    #     ])
+    #     self.sph_kdtree = KDTree(particle_positions)
 
     def _apply_gripper_to_sph(self, gripper_pos):
         """Apply gripper motion to SPH particles"""
