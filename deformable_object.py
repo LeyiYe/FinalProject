@@ -19,8 +19,8 @@ import numpy as np
 class DeformableObjectSim(Application):
 
     def create_particles(self):
-        dx = 0.01
-        object_size = 0.05  # 10cm cube
+        dx = 0.005
+        object_size = 0.05  # 5cm cube
     
     # Create smaller grid
         x, y, z = np.mgrid[

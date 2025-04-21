@@ -8,9 +8,12 @@ from scipy.spatial import KDTree
 
 class PandaState(Enum):
     OPEN = auto()
+    APPROACH = auto()     
     CLOSE = auto()
     START_CLOSER = auto()
     CLOSE_SOFT = auto()
+    GRASP = auto()         
+    LIFT = auto()          
     SQUEEZE = auto()
     SQUEEZE_HOLDING = auto()
     SQUEEZE_NO_GRAVITY = auto()
@@ -19,6 +22,7 @@ class PandaState(Enum):
     LIN_ACC = auto()
     ANG_ACC = auto()
     DONE = auto()
+
 
 class PandaFSM:
     def __init__(self, mode="pickup"):
@@ -32,6 +36,9 @@ class PandaFSM:
         self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
         """self.panda = p.loadURDF("franka_description/robots/common/hand.urdf", useFixedBase=True)"""
         
+        # Create platform for the object
+        self._create_platform()
+
         # Get joint information
         self.num_joints = p.getNumJoints(self.panda)
         self.joint_info = self._get_joint_info()
@@ -78,15 +85,58 @@ class PandaFSM:
         self.coupling_stiffness = 1e8  # N/m (tune based on material)
         self.gripper_influence_radius = 0.02  # meters
         self.last_gripper_pos = np.zeros(3)
-
         self.sph_visual_shapes = []  # To store PyBullet visual shapes
         self.particle_radius = 0.003  # Visual radius of particles
         
         # Initialize SPH simulation
         self._init_sph_simulation()
-        
+        self._position_object_on_platform()
+
         # Initialize variables
         self._init_variables()
+
+    def _create_platform(self):
+        """Create a platform for the object to rest on"""
+        platform_height = 0.02  # 2cm thick
+        platform_size = 0.2      # 20cm square
+        
+        # Visual shape
+        platform_shape = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=[platform_size/2, platform_size/2, platform_height/2],
+            rgbaColor=[0.8, 0.8, 0.8, 1]  # Light gray
+        )
+        
+        # Collision shape
+        collision_shape = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=[platform_size/2, platform_size/2, platform_height/2]
+        )
+        
+        self.platform = p.createMultiBody(
+            baseMass=0,  # Static platform
+            baseCollisionShapeIndex=collision_shape,
+            baseVisualShapeIndex=platform_shape,
+            basePosition=[0, 0, -platform_height/2]  # Position at z=0
+        )
+
+    def _position_object_on_platform(self):
+        """Center SPH object on platform"""
+        if hasattr(self, 'sph_particles'):
+            # Calculate current object center
+            mean_x = np.mean(self.sph_particles.x)
+            mean_y = np.mean(self.sph_particles.y)
+            mean_z = np.mean(self.sph_particles.z)
+            
+            # Shift to platform position (1cm above platform surface)
+            z_offset = 0.01  
+            self.sph_particles.x += -mean_x  # Center in x
+            self.sph_particles.y += -mean_y  # Center in y
+            self.sph_particles.z += (z_offset) - mean_z  # Position above platform
+            
+            # Update visualization if exists
+            if hasattr(self, 'sph_visual_shapes'):
+                self._update_sph_visualization()
         
     def _init_variables(self):
         """Initialize all state variables"""
@@ -331,7 +381,12 @@ class PandaFSM:
     def run(self):
         """Main simulation loop with SPH integration"""
         self._init_sph_simulation()
-        
+        self._position_object_on_platform()
+
+        # Show debug markers
+        self._show_debug_markers()
+
+
         while True:
             self.timer += 1
             
@@ -339,16 +394,14 @@ class PandaFSM:
             gripper_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
             self.gripper_poses.append(gripper_pos)
             
-            # --- SPH Coupling ---
+            F_curr = self.get_gripper_force()
+            
+            # SPH coupling
             self._apply_gripper_to_sph(gripper_pos)
 
-            # Step SPH (substepping for stability)
-            """for _ in range(5):
-                self.sph_solver.solve(1.0/1200.0)"""  # Smaller timesteps
-            
             # Compute and apply reaction forces
             reaction_force = self._compute_sph_reaction_force(gripper_pos)
-            self.force_feedback.append(reaction_force)
+            """self.force_feedback.append(reaction_force)"""
             
             p.applyExternalForce(
                 self.panda,
@@ -365,8 +418,14 @@ class PandaFSM:
             # State machine logic
             if self.state == PandaState.OPEN:
                 self._open_state()
+            elif self.state == PandaState.APPROACH:
+                self._approach_state()
+            elif self.state == PandaState.GRASP:
+                self._grasp_state(F_curr)
+            elif self.state == PandaState.LIFT:
+                self._lift_state()
             elif self.state == PandaState.CLOSE:
-                self._close_state(F_curr, gripper_pos)
+                self._close_state(F_curr, self.get_gripper_positions())
             elif self.state == PandaState.START_CLOSER:
                 self._start_closer_state(gripper_pos)
             elif self.state == PandaState.CLOSE_SOFT:
@@ -402,6 +461,97 @@ class PandaFSM:
             self.state = PandaState.CLOSE
             self.open_counter = 0
     
+
+    def _approach_state(self):
+        """Move gripper above the object"""
+        target_pos = [0, 0, 0.15]  # 15cm above object center
+        current_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
+        
+        # Simple P controller for arm movement
+        pos_error = np.array(target_pos) - np.array(current_pos)
+        arm_velocity = pos_error * self.config['franka']['arm_kp']
+        
+        # Get current joint positions
+        joint_positions = [p.getJointState(self.panda, i)[0] for i in range(7)]
+        
+        # Calculate target joint positions using inverse kinematics
+        target_joint_positions = p.calculateInverseKinematics(
+            self.panda,
+            self.joint_info['panda_hand_joint']['index'],
+            target_pos,
+            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0])  # Gripper facing down
+        )
+        
+        # Move arm using position control
+        for i in range(7):  # First 7 joints are the arm
+            p.setJointMotorControl2(
+                self.panda,
+                i,
+                p.POSITION_CONTROL,
+                targetPosition=target_joint_positions[i],
+                force=100
+            )
+        
+        # Open gripper during approach
+        self.set_gripper_velocity(0.5, 0.5)
+        
+        # Transition when close enough
+        if np.linalg.norm(pos_error) < 0.02:  # 2cm threshold
+            print("Approach complete, switching to GRASP state")
+            self.state = PandaState.GRASP
+
+    def _grasp_state(self, F_curr):
+        """Close gripper to grasp object with force control"""
+        target_force = self.config['force_control']['grasp_force']
+        
+        # Simple P controller for grasp force
+        force_error = target_force - sum(F_curr)
+        Kp = self.config['force_control']['Kp']
+        
+        # Adjust torque based on force error
+        self.running_torque[0] -= min(force_error * Kp, 3 * Kp)
+        self.running_torque[1] -= min(force_error * Kp, 3 * Kp)
+        self.set_gripper_torque(self.running_torque[0], self.running_torque[1])
+        
+        # Check if we've achieved sufficient grasp force
+        if sum(F_curr) > target_force * 0.9:  # 90% of target force
+            print(f"Grasped with force {sum(F_curr):.2f}N, switching to LIFT")
+            self.state = PandaState.LIFT
+
+    def _lift_state(self):
+        """Lift the grasped object"""
+        target_height = self.config['franka']['lift_height']
+        current_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
+        
+        # Calculate IK for lifted position
+        lifted_pos = [current_pos[0], current_pos[1], target_height]
+        target_joint_positions = p.calculateInverseKinematics(
+            self.panda,
+            self.joint_info['panda_hand_joint']['index'],
+            lifted_pos,
+            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0])
+        )
+        
+        # Move arm up while maintaining grasp
+        for i in range(7):  # Arm joints
+            p.setJointMotorControl2(
+                self.panda,
+                i,
+                p.POSITION_CONTROL,
+                targetPosition=target_joint_positions[i],
+                force=100
+            )
+        
+        # Maintain grasp force
+        self.set_gripper_torque(self.running_torque[0], self.running_torque[1])
+        
+        # Transition when reached height
+        if current_pos[2] > target_height - 0.01:
+            print("Lift complete, switching to HANG state")
+            self.state = PandaState.HANG
+
+
+
     def _close_state(self, F_curr, gripper_pos):
         """Close gripper until contact"""
         print("CLOSE STATE - Moving gripper close")
@@ -580,6 +730,31 @@ class PandaFSM:
         plt.xlabel("Time step")
         plt.ylabel("Force (N)")
         plt.show()
+
+
+
+    def _show_debug_markers(self):
+        """Show debug markers for platform and target positions"""
+        # Platform center marker
+        p.addUserDebugPoints(
+            pointPositions=[[0, 0, 0]],
+            pointColorsRGB=[[1, 0, 0]],
+            pointSize=10
+        )
+        
+        # Approach target marker
+        p.addUserDebugPoints(
+            pointPositions=[[0, 0, 0.15]],
+            pointColorsRGB=[[0, 1, 0]],
+            pointSize=10
+        )
+        
+        # Lift target marker
+        p.addUserDebugPoints(
+            pointPositions=[[0, 0, self.config['franka']['lift_height']]],
+            pointColorsRGB=[[0, 0, 1]],
+            pointSize=10
+        )
 
 if __name__ == "__main__":
     fsm = PandaFSM(mode="pickup")
