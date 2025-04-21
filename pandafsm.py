@@ -238,12 +238,20 @@ class PandaController:
         """Create efficient particle visualization"""
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             raise RuntimeError("SPH particles not initialized before visualization")
-            
+        
+        # Increase particle size for better visibility
+        self.particle_radius = 0.01  # Changed from 0.003 to 1cm radius
+        
         self.particle_shape = p.createVisualShape(
             p.GEOM_SPHERE,
             radius=self.particle_radius,
-            rgbaColor=[0, 0.5, 1, 0.7]
+            rgbaColor=[0, 0.5, 1, 1.0]  # Changed alpha to 1.0 (fully opaque)
         )
+        
+        # Clear any existing visual bodies
+        if hasattr(self, 'sph_visual_bodies'):
+            for body in self.sph_visual_bodies:
+                p.removeBody(body)
         
         self.sph_visual_bodies = []
         for i in range(len(self.sph_particles.x)):
@@ -257,6 +265,8 @@ class PandaController:
                 ]
             )
             self.sph_visual_bodies.append(body)
+        
+        print(f"Created {len(self.sph_visual_bodies)} visual bodies")  # Debug
 
     def _update_sph_visualization(self):
         """Update particle positions"""
