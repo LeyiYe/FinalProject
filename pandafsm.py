@@ -751,7 +751,7 @@ class PandaFSM:
         
         # Lift target marker
         p.addUserDebugPoints(
-            pointPositions=[[0, 0, self.config['franka']['lift_height']]],
+            pointPositions=[[0, 0, 0.5]],
             pointColorsRGB=[[0, 0, 1]],
             pointSize=10
         )
