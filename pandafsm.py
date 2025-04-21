@@ -55,7 +55,7 @@ class PandaController:
         self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
-        self.sph_kdtree = None
+        self._update_sph_kdtree()
         self.force_feedback = []
         self.gripper_poses = []
         
@@ -277,6 +277,15 @@ class PandaController:
     #         self.sph_particles.z
     #     ])
     #     self.sph_kdtree = KDTree(particle_positions)
+
+    def _update_sph_kdtree(self):
+        """Update KDTree for efficient neighbor searches"""
+        particle_positions = np.column_stack([
+            self.sph_particles.x,
+            self.sph_particles.y,
+            self.sph_particles.z
+        ])
+        self.sph_kdtree = KDTree(particle_positions)
 
     def _apply_gripper_to_sph(self, gripper_pos):
         """Apply gripper motion to SPH particles"""
