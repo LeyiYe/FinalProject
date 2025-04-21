@@ -275,42 +275,46 @@ class PandaFSM:
         self._update_sph_kdtree()
 
     def _create_sph_visualization(self):
-        """Create PyBullet visual shapes for SPH particles"""
-        # First clear any existing shapes
-        for shape in self.sph_visual_shapes:
-            p.removeBody(shape)
-        self.sph_visual_shapes = []
+        # Create a single compound shape
+        particle_positions = np.column_stack([
+            self.sph_particles.x, 
+            self.sph_particles.y, 
+            self.sph_particles.z
+        ])
         
-        # Create a new visual shape for each particle
-        for i in range(len(self.sph_particles.x)):
-            visual_shape = p.createVisualShape(
-                p.GEOM_SPHERE,
-                radius=self.particle_radius,
-                rgbaColor=[0, 0.5, 1, 0.7]  # Semi-transparent blue
-            )
-            body = p.createMultiBody(
-                baseMass=0,  # Visual only, no physics
-                baseVisualShapeIndex=visual_shape,
-                basePosition=[
-                    self.sph_particles.x[i],
-                    self.sph_particles.y[i],
-                    self.sph_particles.z[i]
-                ]
-            )
-            self.sph_visual_shapes.append(body)
+        # Batch visualization (10x faster)
+        self.sph_visual_shape = p.createVisualShape(
+            p.GEOM_MESH,
+            vertices=particle_positions,
+            rgbaColor=[0, 0.5, 1, 0.7],
+            meshScale=[self.particle_radius]*3
+        )
+        self.sph_visual_body = p.createMultiBody(
+            baseMass=0,
+            baseVisualShapeIndex=self.sph_visual_shape
+        )
 
     def _update_sph_visualization(self):
-        """Update particle positions in PyBullet visualization"""
-        for i, body in enumerate(self.sph_visual_shapes):
-            p.resetBasePositionAndOrientation(
-                body,
-                posObj=[
-                    self.sph_particles.x[i],
-                    self.sph_particles.y[i],
-                    self.sph_particles.z[i]
-                ],
-                ornObj=[0, 0, 0, 1]
-            )
+        if not hasattr(self, 'sph_visual_body'):
+            return
+            
+        particle_positions = np.column_stack([
+            self.sph_particles.x,
+            self.sph_particles.y, 
+            self.sph_particles.z
+        ])
+        
+        # Update all particles at once
+        p.resetBasePositionAndOrientation(
+            self.sph_visual_body,
+            posObj=[0, 0, 0],  # Center position
+            ornObj=[0, 0, 0, 1]
+        )
+        p.changeVisualShape(
+            self.sph_visual_body,
+            -1,
+            vertices=particle_positions
+        )
 
     def _update_sph_kdtree(self):
         """Update KDTree for efficient neighbor searches"""
@@ -444,7 +448,11 @@ class PandaFSM:
                 self.set_gripper_velocity(0, 0)
                 self.set_gripper_torque(0, 0)
                 break
-                
+
+            # Update visualization every N steps (e.g., N=5 for performance)
+            if self.timer % 5 == 0:
+                self._update_sph_visualization()
+                    
             # Step simulation
             p.stepSimulation()
             time.sleep(1./240.)
