@@ -275,19 +275,12 @@ class PandaFSM:
         self._update_sph_kdtree()
 
     def _create_sph_visualization(self):
-        # Create a single compound shape
-        particle_positions = np.column_stack([
-            self.sph_particles.x, 
-            self.sph_particles.y, 
-            self.sph_particles.z
-        ])
-        
-        # Batch visualization (10x faster)
+        # Create a point cloud visualizer
         self.sph_visual_shape = p.createVisualShape(
-            p.GEOM_MESH,
-            vertices=particle_positions,
+            p.GEOM_POINT_CLOUD,
+            pointFlags=p.GEOM_FORCE_CONCAVE_TRIMESH,
             rgbaColor=[0, 0.5, 1, 0.7],
-            meshScale=[self.particle_radius]*3
+            pointSize=self.particle_radius * 1000  # Scale factor
         )
         self.sph_visual_body = p.createMultiBody(
             baseMass=0,
@@ -295,21 +288,12 @@ class PandaFSM:
         )
 
     def _update_sph_visualization(self):
-        if not hasattr(self, 'sph_visual_body'):
-            return
-            
         particle_positions = np.column_stack([
             self.sph_particles.x,
-            self.sph_particles.y, 
+            self.sph_particles.y,
             self.sph_particles.z
-        ])
+        ]).flatten().tolist()  # Flatten to list
         
-        # Update all particles at once
-        p.resetBasePositionAndOrientation(
-            self.sph_visual_body,
-            posObj=[0, 0, 0],  # Center position
-            ornObj=[0, 0, 0, 1]
-        )
         p.changeVisualShape(
             self.sph_visual_body,
             -1,
