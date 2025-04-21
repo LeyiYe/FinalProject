@@ -252,40 +252,41 @@ class PandaFSM:
         ]
         return gripper_center
     
-    def _init_sph_simulation(self):
-        """Initialize SPH simulation with visualization"""
-        self.sph_app = DeformableObjectSim()
-        self.sph_solver = self.sph_app.create_solver()
-        self.sph_particles = self.sph_app.create_particles()
-
-        # Get gripper center position
-        gripper_center = self.get_gripper_opening_center()
-        
-        # Offset object position (adjust these values as needed)
-        x_offset = 0.0   # Forward/backward relative to gripper
-        y_offset = 0.0   # Left/right relative to gripper
-        z_offset = -0.03 # Up/down relative to gripper (negative = below)
-        
-        # Reposition all particles
-        self.sph_particles.x += gripper_center[0] + x_offset
-        self.sph_particles.y += gripper_center[1] + y_offset
-        self.sph_particles.z += gripper_center[2] + z_offset
-        
-        self._create_sph_visualization()
-        self._update_sph_kdtree()
-
     def _create_sph_visualization(self):
-        # Create a point cloud visualizer
-        self.sph_visual_shape = p.createVisualShape(
-            p.GEOM_POINT_CLOUD,
-            pointFlags=p.GEOM_FORCE_CONCAVE_TRIMESH,
-            rgbaColor=[0, 0.5, 1, 0.7],
-            pointSize=self.particle_radius * 1000  # Scale factor
+        """Create efficient particle visualization using sphere instances"""
+        # Create a single visual shape template
+        self.particle_shape = p.createVisualShape(
+            p.GEOM_SPHERE,
+            radius=self.particle_radius,
+            rgbaColor=[0, 0.5, 1, 0.7]
         )
-        self.sph_visual_body = p.createMultiBody(
-            baseMass=0,
-            baseVisualShapeIndex=self.sph_visual_shape
-        )
+        
+        # Create multiple bodies using the same shape
+        self.sph_visual_bodies = []
+        for i in range(len(self.sph_particles.x)):
+            body = p.createMultiBody(
+                baseMass=0,
+                baseVisualShapeIndex=self.particle_shape,
+                basePosition=[
+                    self.sph_particles.x[i],
+                    self.sph_particles.y[i],
+                    self.sph_particles.z[i]
+                ]
+            )
+            self.sph_visual_bodies.append(body)
+
+    def _update_sph_visualization(self):
+        """Update particle positions"""
+        for i, body in enumerate(self.sph_visual_bodies):
+            p.resetBasePositionAndOrientation(
+                body,
+                posObj=[
+                    self.sph_particles.x[i],
+                    self.sph_particles.y[i],
+                    self.sph_particles.z[i]
+                ],
+                ornObj=[0, 0, 0, 1]
+            )
 
     def _update_sph_visualization(self):
         particle_positions = np.column_stack([
