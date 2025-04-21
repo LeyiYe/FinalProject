@@ -89,7 +89,7 @@ class PandaFSM:
         self.particle_radius = 0.003  # Visual radius of particles
         
         # Initialize SPH simulation
-        self._init_sph_simulation()
+        self._create_sph_visualization()
         self._position_object_on_platform()
 
         # Initialize variables
