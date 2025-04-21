@@ -2,7 +2,9 @@ import pybullet as p
 import pybullet_data
 import numpy as np
 import time
+from deformable_object import DeformableObjectSim
 from enum import Enum, auto
+from scipy.spatial import KDTree 
 
 class PandaState(Enum):
     OPEN = auto()
@@ -64,6 +66,18 @@ class PandaFSM:
                 'near_rigid_object_F_des': 20.0
             }
         }
+        # SPH Integration Additions
+        self.sph_app = DeformableObjectSim()
+        self.sph_solver = None
+        self.sph_particles = None
+        self.sph_kdtree = None
+        self.force_feedback = []
+        self.gripper_poses = []
+        
+        # Coupling parameters
+        self.coupling_stiffness = 1e6  # N/m (tune based on material)
+        self.gripper_influence_radius = 0.15  # meters
+        self.last_gripper_pos = np.zeros(3)
         
         # Initialize variables
         self._init_variables()
@@ -166,12 +180,105 @@ class PandaFSM:
         ])
         return [states[0][0], states[1][0]]
     
+    def _init_sph_simulation(self):
+        """Initialize SPH simulation"""
+        self.sph_solver = self.sph_app.create_solver()
+        self.sph_particles = self.sph_app.create_particles()
+        self._update_sph_kdtree()
+
+    def _update_sph_kdtree(self):
+        """Update KDTree for efficient neighbor searches"""
+        particle_positions = np.column_stack([
+            self.sph_particles.x,
+            self.sph_particles.y,
+            self.sph_particles.z
+        ])
+        self.sph_kdtree = KDTree(particle_positions)
+
+    def _apply_gripper_to_sph(self, gripper_pos):
+        """Apply gripper motion to SPH particles"""
+        # Get current gripper velocity (finite difference)
+        gripper_vel = np.array(gripper_pos) - self.last_gripper_pos
+        self.last_gripper_pos = np.array(gripper_pos)
+        
+        # Find particles near gripper
+        neighbor_indices = self.sph_kdtree.query_ball_point(
+            gripper_pos, 
+            self.gripper_influence_radius
+        )
+        
+        # Apply motion (rigid attachment approximation)
+        for i in neighbor_indices:
+            self.sph_particles.u[i] = gripper_vel[0] * 240.0  # Scale by timestep
+            self.sph_particles.v[i] = gripper_vel[1] * 240.0
+            self.sph_particles.w[i] = gripper_vel[2] * 240.0
+
+    def _compute_sph_reaction_force(self, gripper_pos):
+        """Calculate reaction force from SPH particles"""
+        neighbor_indices = self.sph_kdtree.query_ball_point(
+            gripper_pos,
+            self.gripper_influence_radius
+        )
+        
+        total_force = np.zeros(3)
+        for i in neighbor_indices:
+            # Compute displacement vector
+            r = np.array([
+                self.sph_particles.x[i] - gripper_pos[0],
+                self.sph_particles.y[i] - gripper_pos[1],
+                self.sph_particles.z[i] - gripper_pos[2]
+            ])
+            dist = np.linalg.norm(r)
+            
+            if dist < 1e-6:
+                continue
+                
+            # Normalized direction vector
+            n = r / dist
+            
+            # Simplified force model (stress + spring)
+            stress_force = np.array([
+                self.sph_particles.s00[i] + self.sph_particles.s01[i] + self.sph_particles.s02[i],
+                self.sph_particles.s10[i] + self.sph_particles.s11[i] + self.sph_particles.s12[i],
+                self.sph_particles.s20[i] + self.sph_particles.s21[i] + self.sph_particles.s22[i]
+            ])
+            
+            spring_force = -self.coupling_stiffness * r
+            total_force += (stress_force + spring_force) * self.sph_particles.m[i]
+            
+        return total_force
+
     def run(self):
-        """Main simulation loop"""
+        """Main simulation loop with SPH integration"""
+        self._init_sph_simulation()
+        
         while True:
             self.timer += 1
             
-            # Get current state information
+            # --- PyBullet Step ---
+            gripper_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
+            self.gripper_poses.append(gripper_pos)
+            
+            # --- SPH Coupling ---
+            self._apply_gripper_to_sph(gripper_pos)
+            
+            # Step SPH (substepping for stability)
+            for _ in range(5):
+                self.sph_solver.step(1.0/1200.0)  # Smaller timesteps
+            
+            # Compute and apply reaction forces
+            reaction_force = self._compute_sph_reaction_force(gripper_pos)
+            self.force_feedback.append(reaction_force)
+            
+            p.applyExternalForce(
+                self.panda,
+                self.joint_info['panda_hand_joint']['index'],
+                forceObj=reaction_force,
+                posObj=gripper_pos,
+                flags=p.WORLD_FRAME
+            )
+            
+            # --- State Machine ---
             F_curr = self.get_gripper_force()
             gripper_pos = self.get_gripper_positions()
             
@@ -376,7 +483,21 @@ class PandaFSM:
             print("Squeeze no gravity complete")
             self.state = PandaState.DONE
 
+            
+    def visualize_force_feedback(self):
+        """Plot force magnitude over time"""
+        import matplotlib.pyplot as plt
+        forces = np.linalg.norm(self.force_feedback, axis=1)
+        plt.plot(forces)
+        plt.title("Gripper Reaction Forces")
+        plt.xlabel("Time step")
+        plt.ylabel("Force (N)")
+        plt.show()
+
 if __name__ == "__main__":
     fsm = PandaFSM(mode="pickup")
-    fsm.run()
-    p.disconnect()
+    try:
+        fsm.run()
+    finally:
+        fsm.visualize_force_feedback()
+        p.disconnect()
