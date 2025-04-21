@@ -72,6 +72,7 @@ class PandaController:
 
         # Initialize variables
         self._init_variables()
+        self.fsm = PandaFSM(self)
 
     def _create_platform(self):
         """Create a platform for the object to rest on"""

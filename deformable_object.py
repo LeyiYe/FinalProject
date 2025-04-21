@@ -40,6 +40,8 @@ class DeformableObjectSim(Application):
 
         density = 1000  # kg/m³
         particle_mass = (dx**3) * density
+
+        print(f"Created {len(x)} particles")
         
         # Create particle array with elastic dynamics properties
         particles = get_particle_array_elastic_dynamics(
