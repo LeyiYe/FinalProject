@@ -75,9 +75,15 @@ class PandaFSM:
         self.gripper_poses = []
         
         # Coupling parameters
-        self.coupling_stiffness = 1e6  # N/m (tune based on material)
-        self.gripper_influence_radius = 0.15  # meters
+        self.coupling_stiffness = 1e8  # N/m (tune based on material)
+        self.gripper_influence_radius = 0.2  # meters
         self.last_gripper_pos = np.zeros(3)
+
+        self.sph_visual_shapes = []  # To store PyBullet visual shapes
+        self.particle_radius = 0.02  # Visual radius of particles
+        
+        # Initialize SPH simulation
+        self._init_sph_simulation()
         
         # Initialize variables
         self._init_variables()
@@ -181,10 +187,52 @@ class PandaFSM:
         return [states[0][0], states[1][0]]
     
     def _init_sph_simulation(self):
-        """Initialize SPH simulation"""
+        """Initialize SPH simulation with visualization"""
+        self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
+        
+        # Create visual shapes in PyBullet
+        self._create_sph_visualization()
         self._update_sph_kdtree()
+
+    def _create_sph_visualization(self):
+        """Create PyBullet visual shapes for SPH particles"""
+        # First clear any existing shapes
+        for shape in self.sph_visual_shapes:
+            p.removeBody(shape)
+        self.sph_visual_shapes = []
+        
+        # Create a new visual shape for each particle
+        for i in range(len(self.sph_particles.x)):
+            visual_shape = p.createVisualShape(
+                p.GEOM_SPHERE,
+                radius=self.particle_radius,
+                rgbaColor=[0, 0.5, 1, 0.7]  # Semi-transparent blue
+            )
+            body = p.createMultiBody(
+                baseMass=0,  # Visual only, no physics
+                baseVisualShapeIndex=visual_shape,
+                basePosition=[
+                    self.sph_particles.x[i],
+                    self.sph_particles.y[i],
+                    self.sph_particles.z[i]
+                ]
+            )
+            self.sph_visual_shapes.append(body)
+
+    def _update_sph_visualization(self):
+        """Update particle positions in PyBullet visualization"""
+        for i, body in enumerate(self.sph_visual_shapes):
+            p.resetBasePositionAndOrientation(
+                body,
+                posObj=[
+                    self.sph_particles.x[i],
+                    self.sph_particles.y[i],
+                    self.sph_particles.z[i]
+                ],
+                ornObj=[0, 0, 0, 1]
+            )
 
     def _update_sph_kdtree(self):
         """Update KDTree for efficient neighbor searches"""
@@ -221,6 +269,7 @@ class PandaFSM:
         )
         
         total_force = np.zeros(3)
+    
         for i in neighbor_indices:
             # Compute displacement vector
             r = np.array([
