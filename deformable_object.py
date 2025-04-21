@@ -1,7 +1,8 @@
 from pysph.base.kernels import CubicSpline
 from pysph.solver.solver import Solver
 from pysph.solver.application import Application
-from pysph.sph.integrator import EPECIntegrator
+from pysph.sph.integrator import EPECIntegrator, PECIntegrator
+from pysph.sph.integrator_step import WCSPHStep
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import (
     ContinuityEquation, XSPHCorrection
@@ -90,8 +91,8 @@ class DeformableObjectSim(Application):
 
     def create_solver(self):
         kernel = CubicSpline(dim=3)
-        integrator = EPECIntegrator('object')
-        solver = Solver(dim=2, integrator=integrator, kernel=kernel,
+        integrator = EPECIntegrator(elastic=WCSPHStep())
+        solver = Solver(dim=3, integrator=integrator, kernel=kernel,
                 n_damp=50, tf=1.0, dt=1e-3, adaptive_timestep=True,
                 pfreq=100, cfl=0.5, output_at_times=[1e-1, 1.0])
         
