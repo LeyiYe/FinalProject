@@ -380,8 +380,8 @@ class PandaFSM:
 
     def run(self):
         """Main simulation loop with SPH integration"""
-        self._init_sph_simulation()
-        self._position_object_on_platform()
+        #self._init_sph_simulation()
+        #self._position_object_on_platform()
 
         # Show debug markers
         self._show_debug_markers()

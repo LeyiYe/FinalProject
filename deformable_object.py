@@ -19,8 +19,8 @@ import numpy as np
 class DeformableObjectSim(Application):
 
     def create_particles(self):
-        dx = 0.005
-        object_size = 0.05  # 5cm cube
+        dx = 0.001  # Particle spacing (1mm)
+        object_size = 0.04  # 5cm cube
     
     # Create smaller grid
         x, y, z = np.mgrid[
@@ -59,9 +59,6 @@ class DeformableObjectSim(Application):
             s12=np.zeros_like(x),
             s22=np.zeros_like(x)
         )
-        
-        # Set additional properties if needed
-        particles.cs[:] = 50.0  # Speed of sound
         
         return particles
 
