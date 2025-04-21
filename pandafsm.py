@@ -27,7 +27,8 @@ class PandaFSM:
         
         # Load plane and Panda hand
         self.plane_id = p.loadURDF("plane.urdf")
-        self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
+        """self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)"""
+        self.panda = p.loadURDF("franka_description/robots/common/hand.urdf", useFixedBase=True)
         
         # Get joint information
         self.num_joints = p.getNumJoints(self.panda)
