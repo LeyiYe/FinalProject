@@ -19,7 +19,7 @@ import numpy as np
 class DeformableObjectSim(Application):
 
     def create_particles(self):
-        dx = 0.001  # Particle spacing (1mm)
+        dx = 0.002  # Particle spacing (1mm)
         object_size = 0.04  # 5cm cube
     
     # Create smaller grid
