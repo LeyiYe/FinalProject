@@ -1,4 +1,4 @@
-from core.physics.panda_physics import PandaGraspSimulation
+from panda_physics import PandaGraspSimulation
 
 def main():
     # Create and run simulation

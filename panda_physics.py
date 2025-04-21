@@ -3,13 +3,160 @@ from transforms3d.euler import euler2mat
 from pysph.solver.application import Application
 from pysph.sph.solid_mech.basic import ElasticSolidsScheme, get_particle_array_elastic_dynamics
 from pysph.base.utils import get_particle_array
-from pysph.base.kernels import CubicSpline
+from pysph.base.kernels import CubicSpline, Gaussian
 from core.utils.urdf_processor import URDFProcessor
 from core.physics.panda_fk import get_fk
 from pysph.solver.utils import load
 
+import pybullet as p
 
+def get_boundary_particles_from_panda(panda_uid, spacing=0.02):
+    boundary_particles = []
+    
+    # Iterate through all links in the Panda hand
+    for link_idx in range(p.getNumJoints(panda_uid)):
+        # Get collision shape information
+        collision_data = p.getCollisionShapeData(panda_uid, link_idx)
+        
+        for shape in collision_data:
+            geom_type = shape[2]
+            dimensions = shape[3]
+            position = shape[5]
+            orientation = shape[6]
+            
+            # Create particles based on geometry type
+            if geom_type == p.GEOM_BOX:
+                # Create particles covering the box surface
+                half_extents = dimensions
+                particles = get_deformable_cube(half_extents, spacing, position, orientation)
+                boundary_particles.extend(particles)
+            elif geom_type == p.GEOM_SPHERE:
+                # Create particles covering the sphere surface
+                radius = dimensions
+                particles = get_deformable_cube(radius, spacing, position, orientation)
+                boundary_particles.extend(particles)
+            # Add other geometry types as needed
+    
+    return np.array(boundary_particles)
 
+def add_properties(pa, *props):
+    for prop in props:
+        pa.add_property(name=prop)
+
+def get_deformable_cube(
+    length=0.2,    # side length of the cube (meters)
+    dx=0.02,       # particle spacing (meters)
+    h=0.03,        # smoothing length (meters)
+    ro=1000.0,     # density (kg/m³)
+    cs=10.0,       # speed of sound (for numerical stability)
+    G=1e5,         # shear modulus (controls stiffness)
+    n=4,           # exponent for material model
+    pos=(0.0, 0.0, 0.0)  # center position (x, y, z)
+):
+    """cube = get_deformable_cube(length=0.2, dx=0.01, pos=(0.5, 0.0, 0.2))"""
+    # Create a 3D grid of particles
+    x, y, z = np.mgrid[
+        -length/2 : length/2 : dx,
+        -length/2 : length/2 : dx,
+        -length/2 : length/2 : dx
+    ]
+    x = x.ravel()
+    y = y.ravel()
+    z = z.ravel()
+
+    # Shift to desired position
+    x += pos[0]
+    y += pos[1]
+    z += pos[2]
+
+    print(f"{len(x)} Deformable cube particles")
+
+    # Particle properties
+    hf = np.ones_like(x) * h
+    mf = np.ones_like(x) * (dx ** 3) * ro  # mass = volume * density
+    rhof = np.ones_like(x) * ro
+    csf = np.ones_like(x) * cs
+
+    # Zero initial velocity (stationary)
+    u = np.zeros_like(x)
+    v = np.zeros_like(x)
+    w = np.zeros_like(x)
+
+    # Create the particle array
+    deformable_cube = get_particle_array(
+        name="deformable_cube",
+        x=x, y=y, z=z, h=hf, m=mf, rho=rhof, cs=csf, u=u, v=v, w=w
+    )
+
+    # --- Add SPH properties for deformation ---
+    # Energy (for thermodynamics)
+    add_properties(deformable_cube, 'e')
+
+    # Velocity gradients (3D)
+    add_properties(deformable_cube, 
+        'v00', 'v01', 'v02', 
+        'v10', 'v11', 'v12', 
+        'v20', 'v21', 'v22'
+    )
+
+    # Artificial stress (3D)
+    add_properties(deformable_cube,
+        'r00', 'r01', 'r02',
+        'r11', 'r12', 'r22',
+        'r33'  # Additional component for 3D
+    )
+
+    # Deviatoric stress (3D)
+    add_properties(deformable_cube,
+        's00', 's01', 's02',
+        's11', 's12', 's22',
+        's33'  # Additional component for 3D
+    )
+
+    # Deviatoric stress accelerations (3D)
+    add_properties(deformable_cube,
+        'as00', 'as01', 'as02',
+        'as11', 'as12', 'as22',
+        'as33'  # Additional component for 3D
+    )
+
+    # Initial stress state (3D)
+    add_properties(deformable_cube,
+        's000', 's010', 's020',
+        's110', 's120', 's220',
+        's330'  # Additional component for 3D
+    )
+
+    # Standard SPH accelerations (3D)
+    add_properties(deformable_cube,
+        'arho', 'au', 'av', 'aw',
+        'ax', 'ay', 'az', 'ae'
+    )
+
+    # Initial values (for resetting)
+    add_properties(deformable_cube,
+        'rho0', 'u0', 'v0', 'w0',
+        'x0', 'y0', 'z0', 'e0'
+    )
+
+    # --- Material properties ---
+    deformable_cube.add_constant('G', G)  # Shear modulus (stiffness)
+    deformable_cube.add_constant('n', n)  # Material exponent
+
+    # --- Kernel setup (3D Gaussian) ---
+    kernel = Gaussian(dim=3)
+    wdeltap = kernel.kernel(rij=dx, h=h * dx)
+    deformable_cube.add_constant('wdeltap', wdeltap)
+
+    # --- Optional: 'fixed' flag for constrained particles ---
+    # (0 = free, 1 = fixed; useful for robotic grasping)
+    add_properties(deformable_cube, 'fixed')
+    deformable_cube.fixed[:] = 0  # All particles initially free
+
+    # --- Load balancing (for parallel simulations) ---
+    deformable_cube.set_lb_props(list(deformable_cube.properties.keys()))
+
+    return deformable_cube
 
 
 class PandaGraspSimulation(Application):
