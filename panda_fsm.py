@@ -72,7 +72,9 @@ class PandaFSM:
             self.controller.panda,
             self.controller.joint_info['panda_hand_joint']['index'],
             target_pos,
-            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]))
+            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
+            maxNumIterations=100,
+            residualThreshold=1e-4)
         
         # Move arm joints (first 7)
         for i in range(7):
@@ -81,7 +83,8 @@ class PandaFSM:
                 i,
                 p.POSITION_CONTROL,
                 targetPosition=target_joints[i],
-                force=100)
+                force=500, 
+                maxVelocity=0.5) #limit velocity
         
         # Check if reached position
         if np.linalg.norm(np.array(target_pos) - np.array(current_pos)) < 0.02:
@@ -126,10 +129,7 @@ class PandaFSM:
 
     def _lift_state(self):
         """Lift object while maintaining grasp"""
-        current_pos = p.getLinkState(
-            self.controller.panda,
-            self.controller.joint_info['panda_hand_joint']['index']
-        )[0]
+        current_pos = self.controller.get_ee_pose()[0]
         
         # Target position (lift straight up)
         target_pos = [current_pos[0], current_pos[1], self.lift_height]
@@ -139,18 +139,12 @@ class PandaFSM:
             self.controller.panda,
             self.controller.joint_info['panda_hand_joint']['index'],
             target_pos,
-            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0])
+            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
+            maxNumIterations=100
         )
         
         # Move arm
-        for i in range(7):
-            p.setJointMotorControl2(
-                self.controller.panda,
-                i,
-                p.POSITION_CONTROL,
-                targetPosition=lift_joints[i],
-                force=100
-            )
+        self.controller.set_arm_joint_positions(lift_joints[:7])
         
         # Maintain grasp force
         current_force = np.linalg.norm(self.contact_force)

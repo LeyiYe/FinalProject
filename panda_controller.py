@@ -17,7 +17,6 @@ class PandaController:
         # Load plane and Panda hand
         self.plane_id = p.loadURDF("plane.urdf")
         self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
-        """self.panda = p.loadURDF("franka_description/robots/common/hand.urdf", useFixedBase=True)"""
         
         # Create platform for the object
         self._create_platform()
@@ -61,6 +60,9 @@ class PandaController:
         self._init_variables()
         self.fsm = PandaFSM(self)
 
+        # Setup arm control
+        self._setup_arm_control()
+
         # Camera setup to view the platform
         p.resetDebugVisualizerCamera(
             cameraDistance=1.5,
@@ -69,10 +71,33 @@ class PandaController:
             cameraTargetPosition=[0.5, -0.5, 0.5]
         )
 
+
+    def _setup_arm_control(self):
+        """Initialize arm joint control parameters"""
+        # Enable position control for arm joints
+        for i in range(7):  # First 7 joints are the arm
+            p.resetJointState(self.panda, i, targetValue=0)
+            p.setJointMotorControl2(
+                self.panda,
+                i,
+                p.POSITION_CONTROL,
+                targetPosition=0,
+                force=500,
+                positionGain=0.1
+            )
+            p.changeDynamics(self.panda, i, linearDamping=0.1, angularDamping=0.1)
+        
+        # Print joint limits for debugging
+        print("Joint limits:")
+        for i in range(7):
+            info = p.getJointInfo(self.panda, i)
+            print(f"Joint {i}: {info[8]} to {info[9]}")
+    
+
     def _create_platform(self):
         """Create a platform for the object to rest on"""
         platform_height = 0.02  # 2cm thick
-        platform_size = 0.5      # 20cm square
+        platform_size = 0.5      # 50cm square
         
         # Visual shape
         platform_shape = p.createVisualShape(
@@ -100,7 +125,7 @@ class PandaController:
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        platform_center = np.array([0.5, -0.5, 0.50])  # Slightly above platform
+        platform_center = np.array([0.5, -0.5, 0.51])  # Slightly above platform
         num_particles = len(self.sph_particles.x)
         
         # Create a 10cm cube of particles centered on the platform
@@ -161,6 +186,38 @@ class PandaController:
             }
         return joint_info
     
+     # Arm Control Methods
+    def get_arm_joint_positions(self):
+        """Get current positions of the 7 arm joints"""
+        return [p.getJointState(self.panda, i)[0] for i in range(7)]
+
+    def set_arm_joint_positions(self, target_positions):
+        """Set target positions for the 7 arm joints"""
+        for i in range(7):
+            p.setJointMotorControl2(
+                self.panda,
+                i,
+                p.POSITION_CONTROL,
+                targetPosition=target_positions[i],
+                force=500,
+                maxVelocity=0.5
+            )
+
+    def get_ee_pose(self):
+        """Get end-effector (hand) position and orientation"""
+        return p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])
+
+    def debug_draw_ee_target(self, target_pos):
+        """Visualize target end-effector position"""
+        current_pos = self.get_ee_pose()[0]
+        p.addUserDebugLine(
+            lineFromXYZ=current_pos,
+            lineToXYZ=target_pos,
+            lineColorRGB=[1, 0, 0],
+            lineWidth=2,
+            lifeTime=0.1
+        )
+    
     def get_gripper_force(self):
         """Estimate gripper force based on contact points"""
         left_force = 0
@@ -210,7 +267,7 @@ class PandaController:
         ])
         return [states[0][0], states[1][0]]
     
-    def get_gripper_opening_center(self):
+    def get_gripper_center(self):
         """Calculate the center point between the gripper fingers"""
         # Get finger joint positions
         left_finger_pos = p.getLinkState(self.panda, 
