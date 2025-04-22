@@ -91,7 +91,7 @@ class PandaController:
             baseMass=0,  # Static platform
             baseCollisionShapeIndex=collision_shape,
             baseVisualShapeIndex=platform_shape,
-            basePosition=[0.5, 0.5, 0.5]  # Position of the platform
+            basePosition=[0.5, -0.5, 0.5]  # Position of the platform
         )
 
 
