@@ -38,41 +38,35 @@ class PandaController:
                 'Kp': 0.01,
                 'min_torque': -0.5
             },
-            'lp_filter': {
-                'running_window_size': 10,
-                'averaging_window': 5
-            },
-            'squeeze_no_gravity': {
-                'num_dp': 10,
-                'torque_step_period': 10,
-                'soft_object_torque_step': 0.01,
-                'near_rigid_object_torque_step': 0.05,
-                'soft_object_F_des': 10.0,
-                'near_rigid_object_F_des': 20.0
-            }
         }
         # SPH Integration Additions
         self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
-        self._update_sph_kdtree()
-        self.force_feedback = []
-        self.gripper_poses = []
+
         
         # Coupling parameters
         self.coupling_stiffness = 1e8  # N/m (tune based on material)
         self.gripper_influence_radius = 0.02  # meters
         self.last_gripper_pos = np.zeros(3)
-        self.sph_visual_shapes = []  # To store PyBullet visual shapes
-        self.particle_radius = 0.003  # Visual radius of particles
+        self.particle_radius = 0.01  # Visual radius of particles
         
         # Initialize SPH simulation
-        self._create_sph_visualization()
         self._position_object_on_platform()
+        self._create_sph_visualization()
+        self._update_sph_kdtree()
 
         # Initialize variables
         self._init_variables()
         self.fsm = PandaFSM(self)
+
+        # Camera setup to view the platform
+        p.resetDebugVisualizerCamera(
+            cameraDistance=1.5,
+            cameraYaw=45,
+            cameraPitch=-30,
+            cameraTargetPosition=[0.5, -0.5, 0.5]
+        )
 
     def _create_platform(self):
         """Create a platform for the object to rest on"""
@@ -101,24 +95,21 @@ class PandaController:
 
 
     def _position_object_on_platform(self):
-        """Center SPH object on platform"""
+        """Center SPH object on platform with random distribution"""
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        # Calculate current object center
-        mean_x = np.mean(self.sph_particles.x)
-        mean_y = np.mean(self.sph_particles.y)
-        mean_z = np.mean(self.sph_particles.z)
+        platform_center = np.array([0.5, -0.5, 0.05])  # Slightly above platform
+        num_particles = len(self.sph_particles.x)
         
-        # Shift to platform position
-        z_offset = 0.01  
-        self.sph_particles.x += -mean_x
-        self.sph_particles.y += -mean_y 
-        self.sph_particles.z += (z_offset) - mean_z
+        # Create a 10cm cube of particles centered on the platform
+        cube_size = 0.1
+        self.sph_particles.x = platform_center[0] + np.random.uniform(-cube_size/2, cube_size/2, num_particles)
+        self.sph_particles.y = platform_center[1] + np.random.uniform(-cube_size/2, cube_size/2, num_particles)
+        self.sph_particles.z = platform_center[2] + np.random.uniform(0, cube_size, num_particles)
         
-        # Update visualization if exists
-        if hasattr(self, 'sph_visual_bodies'):
-            self._update_sph_visualization()
+        print(f"Particle positions initialized around {platform_center}")
+
         
     def _init_variables(self):
         """Initialize all state variables"""
@@ -210,7 +201,7 @@ class PandaController:
             forces=[left_torque, right_torque]
         )
     
-    def get_gripper_positions(self):
+    def get_gripper_positions(self): 
         """Get current gripper finger positions"""
         states = p.getJointStates(self.panda, [
             self.joint_info['panda_finger_joint1']['index'],
@@ -218,40 +209,38 @@ class PandaController:
         ])
         return [states[0][0], states[1][0]]
     
-    def get_gripper_opening_center(self):
-        """Calculate the center point between the gripper fingers"""
-        # Get finger joint positions
-        left_finger_pos = p.getLinkState(self.panda, 
-                                    self.joint_info['panda_finger_joint1']['index'])[0]
-        right_finger_pos = p.getLinkState(self.panda, 
-                                        self.joint_info['panda_finger_joint2']['index'])[0]
+    # def get_gripper_opening_center(self):
+    #     """Calculate the center point between the gripper fingers"""
+    #     # Get finger joint positions
+    #     left_finger_pos = p.getLinkState(self.panda, 
+    #                                 self.joint_info['panda_finger_joint1']['index'])[0]
+    #     right_finger_pos = p.getLinkState(self.panda, 
+    #                                     self.joint_info['panda_finger_joint2']['index'])[0]
         
-        # Calculate midpoint between fingers
-        gripper_center = [
-            (left_finger_pos[0] + right_finger_pos[0]) / 2,
-            (left_finger_pos[1] + right_finger_pos[1]) / 2,
-            (left_finger_pos[2] + right_finger_pos[2]) / 2
-        ]
-        return gripper_center
+    #     # Calculate midpoint between fingers
+    #     gripper_center = [
+    #         (left_finger_pos[0] + right_finger_pos[0]) / 2,
+    #         (left_finger_pos[1] + right_finger_pos[1]) / 2,
+    #         (left_finger_pos[2] + right_finger_pos[2]) / 2
+    #     ]
+    #     return gripper_center
     
     def _create_sph_visualization(self):
         """Create efficient particle visualization"""
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             raise RuntimeError("SPH particles not initialized before visualization")
         
-        # Increase particle size for better visibility
-        self.particle_radius = 0.01  # Changed from 0.003 to 1cm radius
-        
-        self.particle_shape = p.createVisualShape(
-            p.GEOM_SPHERE,
-            radius=self.particle_radius,
-            rgbaColor=[0, 0.5, 1, 1.0]  # Changed alpha to 1.0 (fully opaque)
-        )
-        
         # Clear any existing visual bodies
         if hasattr(self, 'sph_visual_bodies'):
             for body in self.sph_visual_bodies:
                 p.removeBody(body)
+        
+        # Create visual shape with bright color
+        self.particle_shape = p.createVisualShape(
+            p.GEOM_SPHERE,
+            radius=self.particle_radius,
+            rgbaColor=[1, 0, 0, 1.0]  # Bright red, fully opaque
+        )
         
         self.sph_visual_bodies = []
         for i in range(len(self.sph_particles.x)):
@@ -266,10 +255,16 @@ class PandaController:
             )
             self.sph_visual_bodies.append(body)
         
-        print(f"Created {len(self.sph_visual_bodies)} visual bodies")  # Debug
-
+        print(f"Created {len(self.sph_visual_bodies)} visual bodies at positions:")
+        print(f"X: {min(self.sph_particles.x):.3f} to {max(self.sph_particles.x):.3f}")
+        print(f"Y: {min(self.sph_particles.y):.3f} to {max(self.sph_particles.y):.3f}")
+        print(f"Z: {min(self.sph_particles.z):.3f} to {max(self.sph_particles.z):.3f}")
+    
     def _update_sph_visualization(self):
-        """Update particle positions"""
+        """Update particle positions every simulation step"""
+        if not hasattr(self, 'sph_visual_bodies'):
+            return
+            
         for i, body in enumerate(self.sph_visual_bodies):
             p.resetBasePositionAndOrientation(
                 body,
@@ -280,14 +275,6 @@ class PandaController:
                 ],
                 ornObj=[0, 0, 0, 1]
             )
-
-    # def _update_sph_kdtree(self):
-    #     particle_positions = np.column_stack([
-    #         self.sph_particles.x,
-    #         self.sph_particles.y,
-    #         self.sph_particles.z
-    #     ])
-    #     self.sph_kdtree = KDTree(particle_positions)
 
     def _update_sph_kdtree(self):
         """Update KDTree for efficient neighbor searches"""
@@ -356,18 +343,13 @@ class PandaController:
         return total_force
 
     def run(self):
-        """Main simulation loop"""
-        self._show_debug_markers()
-
+        """Main simulation loop with forced visualization updates"""
         while True:
             # SPH coupling
             gripper_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
-            self.gripper_poses.append(gripper_pos)
-            
             self._apply_gripper_to_sph(gripper_pos)
             reaction_force = self._compute_sph_reaction_force(gripper_pos)
-            self.force_feedback.append(reaction_force)
-
+            
             p.applyExternalForce(
                 self.panda,
                 self.joint_info['panda_hand_joint']['index'],
@@ -376,13 +358,12 @@ class PandaController:
                 flags=p.WORLD_FRAME
             )
             
+            # Update visualization every step
+            self._update_sph_visualization()
+            
             # Update FSM
             if not self.fsm.update():
                 break
-            
-            # Update visualization
-            if self.fsm.timer % 5 == 0:
-                self._update_sph_visualization()
                     
             # Step simulation
             p.stepSimulation()
@@ -414,28 +395,28 @@ class PandaController:
 
 
 
-    def _show_debug_markers(self):
-        """Show debug markers for platform and target positions"""
-        # Platform center marker
-        p.addUserDebugPoints(
-            pointPositions=[[0, 0, 0]],
-            pointColorsRGB=[[1, 0, 0]],
-            pointSize=10
-        )
+    # def _show_debug_markers(self):
+    #     """Show debug markers for platform and target positions"""
+    #     # Platform center marker
+    #     p.addUserDebugPoints(
+    #         pointPositions=[[0, 0, 0]],
+    #         pointColorsRGB=[[1, 0, 0]],
+    #         pointSize=10
+    #     )
         
-        # Approach target marker
-        p.addUserDebugPoints(
-            pointPositions=[[0, 0, 0.15]],
-            pointColorsRGB=[[0, 1, 0]],
-            pointSize=10
-        )
+    #     # Approach target marker
+    #     p.addUserDebugPoints(
+    #         pointPositions=[[0, 0, 0.15]],
+    #         pointColorsRGB=[[0, 1, 0]],
+    #         pointSize=10
+    #     )
         
-        # Lift target marker
-        p.addUserDebugPoints(
-            pointPositions=[[0, 0, 0.5]],
-            pointColorsRGB=[[0, 0, 1]],
-            pointSize=10
-        )
+    #     # Lift target marker
+    #     p.addUserDebugPoints(
+    #         pointPositions=[[0, 0, 0.5]],
+    #         pointColorsRGB=[[0, 0, 1]],
+    #         pointSize=10
+    #     )
 
 if __name__ == "__main__":
     controller = PandaController(mode="pickup")
