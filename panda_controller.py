@@ -90,7 +90,7 @@ class PandaController:
             baseMass=0,  # Static platform
             baseCollisionShapeIndex=collision_shape,
             baseVisualShapeIndex=platform_shape,
-            basePosition=[0.5, -0.5, 0.5]  # Position at z=0
+            basePosition=[0.5, -0.5, 0.5]  # Position of the platform
         )
 
 
@@ -99,7 +99,7 @@ class PandaController:
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        platform_center = np.array([0.5, -0.5, 0.05])  # Slightly above platform
+        platform_center = np.array([0.5, -0.5, 0.55])  # Slightly above platform
         num_particles = len(self.sph_particles.x)
         
         # Create a 10cm cube of particles centered on the platform
