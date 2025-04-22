@@ -43,6 +43,7 @@ class PandaController:
         self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
+        self.force_feedback= []
 
         
         # Coupling parameters
