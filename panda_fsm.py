@@ -72,7 +72,7 @@ class PandaFSM:
             self.controller.panda,
             self.controller.joint_info['panda_hand_joint']['index'],
             target_pos,
-            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0])
+            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]))
         
         # Move arm joints (first 7)
         for i in range(7):
@@ -81,8 +81,7 @@ class PandaFSM:
                 i,
                 p.POSITION_CONTROL,
                 targetPosition=target_joints[i],
-                force=100
-            )
+                force=100)
         
         # Check if reached position
         if np.linalg.norm(np.array(target_pos) - np.array(current_pos)) < 0.02:
