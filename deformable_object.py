@@ -17,6 +17,11 @@ from pysph.sph.solid_mech.basic import (
 import numpy as np
 
 class DeformableObjectSim(Application):
+    def __init__(self, particle_radius=0.01):
+        self.particle_radius = particle_radius
+        self.object_size = 0.05  # 5cm cube
+        super().__init__()
+        
 
     def create_particles(self):
         dx = 0.01  # Particle spacing (1mm)

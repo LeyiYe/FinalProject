@@ -49,7 +49,7 @@ class PandaController:
         self.coupling_stiffness = 1e8  # N/m (tune based on material)
         self.gripper_influence_radius = 0.02  # meters
         self.last_gripper_pos = np.zeros(3)
-        self.particle_radius = 0.01  # Visual radius of particles
+        self.particle_radius = 0.005  # Visual radius of particles
         
         # Initialize SPH simulation
         self._position_object_on_platform()
@@ -126,13 +126,17 @@ class PandaController:
             return
             
         platform_center = np.array([0.5, -0.5, 0.51])  # Slightly above platform
-        num_particles = len(self.sph_particles.x)
         
         # Create a 10cm cube of particles centered on the platform
-        cube_size = 0.1
-        self.sph_particles.x = platform_center[0] + np.random.uniform(-cube_size/2, cube_size/2, num_particles)
-        self.sph_particles.y = platform_center[1] + np.random.uniform(-cube_size/2, cube_size/2, num_particles)
-        self.sph_particles.z = platform_center[2] + np.random.uniform(0, cube_size, num_particles)
+
+        x_offset = platform_center[0] - np.mean(self.sph_particles.x)
+        y_offset = platform_center[1] - np.mean(self.sph_particles.y)
+        z_offset = platform_center[2] - np.min(self.sph_particles.z)
+
+        # Apply offsets while preserving the cube structure
+        self.sph_particles.x += x_offset
+        self.sph_particles.y += y_offset
+        self.sph_particles.z += z_offset   
         
         print(f"Particle positions initialized around {platform_center}")
 
