@@ -29,7 +29,7 @@ class PandaFSM:
         self.timer += 1
         
         # Get current gripper state
-        gripper_center = self.controller.get_gripper_center()
+        gripper_center = self.get_gripper_center()
         gripper_pos = self.controller.get_gripper_positions()
         
         # Compute SPH reaction force for contact detection
@@ -65,7 +65,7 @@ class PandaFSM:
     def _approach_state(self):
         """Position gripper above the object"""
         target_pos = [0.5, -0.5, 0.15]  # Above platform center
-        current_pos = self.controller.get_gripper_center()
+        current_pos = self.get_gripper_center()
         
         # Calculate IK for target position
         target_joints = p.calculateInverseKinematics(
