@@ -100,7 +100,7 @@ class PandaController:
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        platform_center = np.array([0.5, -0.5, 0.55])  # Slightly above platform
+        platform_center = np.array([0.5, -0.5, 0.50])  # Slightly above platform
         num_particles = len(self.sph_particles.x)
         
         # Create a 10cm cube of particles centered on the platform
@@ -210,21 +210,21 @@ class PandaController:
         ])
         return [states[0][0], states[1][0]]
     
-    # def get_gripper_opening_center(self):
-    #     """Calculate the center point between the gripper fingers"""
-    #     # Get finger joint positions
-    #     left_finger_pos = p.getLinkState(self.panda, 
-    #                                 self.joint_info['panda_finger_joint1']['index'])[0]
-    #     right_finger_pos = p.getLinkState(self.panda, 
-    #                                     self.joint_info['panda_finger_joint2']['index'])[0]
+    def get_gripper_opening_center(self):
+        """Calculate the center point between the gripper fingers"""
+        # Get finger joint positions
+        left_finger_pos = p.getLinkState(self.panda, 
+                                    self.joint_info['panda_finger_joint1']['index'])[0]
+        right_finger_pos = p.getLinkState(self.panda, 
+                                        self.joint_info['panda_finger_joint2']['index'])[0]
         
-    #     # Calculate midpoint between fingers
-    #     gripper_center = [
-    #         (left_finger_pos[0] + right_finger_pos[0]) / 2,
-    #         (left_finger_pos[1] + right_finger_pos[1]) / 2,
-    #         (left_finger_pos[2] + right_finger_pos[2]) / 2
-    #     ]
-    #     return gripper_center
+        # Calculate midpoint between fingers
+        gripper_center = [
+            (left_finger_pos[0] + right_finger_pos[0]) / 2,
+            (left_finger_pos[1] + right_finger_pos[1]) / 2,
+            (left_finger_pos[2] + right_finger_pos[2]) / 2
+        ]
+        return gripper_center
     
     def _create_sph_visualization(self):
         """Create efficient particle visualization"""
