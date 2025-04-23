@@ -458,9 +458,20 @@ class PandaController:
             
             # Simplified force model (stress + spring)
             stress_force = np.array([
-                self.sph_particles.s00[i] + self.sph_particles.s01[i] + self.sph_particles.s02[i],
-                self.sph_particles.s10[i] + self.sph_particles.s11[i] + self.sph_particles.s12[i],
-                self.sph_particles.s20[i] + self.sph_particles.s21[i] + self.sph_particles.s22[i]
+                # x‐component: σ00 + σ01 + σ02
+                self.sph_particles.s00[i]
+            + self.sph_particles.s01[i]
+            + self.sph_particles.s02[i],
+
+                # y‐component: σ01 + σ11 + σ12
+                self.sph_particles.s01[i]
+            + self.sph_particles.s11[i]
+            + self.sph_particles.s12[i],
+
+                # z‐component: σ02 + σ12 + σ22
+                self.sph_particles.s02[i]
+            + self.sph_particles.s12[i]
+            + self.sph_particles.s22[i]
             ])
             
             spring_force = -self.coupling_stiffness * r
