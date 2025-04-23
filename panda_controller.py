@@ -16,21 +16,29 @@ class PandaController:
         
         # Load plane and Panda hand
         self.plane_id = p.loadURDF("plane.urdf")
-        # self.panda = p.loadURDF("franka_description/robots/common/hand.urdf", useFixedBase=True,
-        #                          basePosition=[0.5, -0.5,0.58], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]))
         self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
 
         # Hide all links except hand and fingers
+        self.hand_link_index = None
         for i in range(p.getNumJoints(self.panda)):
             joint_info = p.getJointInfo(self.panda, i)
             joint_name = joint_info[1].decode("utf-8")
+
+            # Store hand and finger indices
+            if "hand" in joint_name:
+                self.hand_link_index = i
+            if "finger" in joint_name:
+                self.finger_joint_indices.append(i)
+
+
             if "hand" not in joint_name and "finger" not in joint_name:
                 p.setCollisionFilterGroupMask(self.panda, i, 0, 0)  # Disable collisions
                 p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])  # Make invisible
                 
         # Create platform for the object
         self._create_platform()
-        #self._position_hand_above_object()
+
+        self._position_hand_above_object()
 
 
         # Get joint information
@@ -83,6 +91,32 @@ class PandaController:
             cameraTargetPosition=[0.5, -0.5, 0.5]
         )
 
+    def _position_hand_above_object(self):
+        """Position the hand directly above the object using IK"""
+        # Target position just above the object center
+        target_pos = [0.5, -0.5, 0.58]
+        target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])  # Standard gripper orientation
+        
+        # Calculate IK solution
+        joint_positions = p.calculateInverseKinematics(
+            self.panda,
+            self.hand_link_index,
+            target_pos,
+            targetOrientation=target_orn,
+            maxNumIterations=100
+        )
+        
+        # Set arm joints to IK solution
+        for i in range(7):  # First 7 joints are the arm
+            p.resetJointState(self.panda, i, joint_positions[i])
+            p.setJointMotorControl2(
+                self.panda,
+                i,
+                p.POSITION_CONTROL,
+                targetPosition=joint_positions[i],
+                force=500,
+                positionGain=0.3
+            )  
 
     def _setup_hand_control(self):
         """Initialize hand joint control parameters (for hand-only setup)"""
@@ -168,21 +202,6 @@ class PandaController:
         
         print(f"Particle positions initialized around {platform_center}")
 
-    # def _position_hand_above_object(self):
-    #     """Position gripper directly above the object center"""
-    #     # Get object center (platform center + slight offset)
-    #     object_center = [0.5, -0.5, 0.53]  # Slightly above platform
-        
-    #     # Position hand 5cm above object
-    #     hand_position = [object_center[0], object_center[1], object_center[2] + 0.05]
-        
-    #     # Reset hand base position
-    #     p.resetBasePositionAndOrientation(
-    #         self.panda,
-    #         posObj=hand_position,
-    #         ornObj=p.getQuaternionFromEuler([0, 0, 0])  # Neutral orientation
-    #     )
-
         
     def _init_variables(self):
         """Initialize all state variables"""
@@ -229,37 +248,6 @@ class PandaController:
             }
         return joint_info
     
-     # Arm Control Methods
-    # def get_arm_joint_positions(self):
-    #     """Get current positions of the 7 arm joints"""
-    #     return [p.getJointState(self.panda, i)[0] for i in range(7)]
-
-    # def set_arm_joint_positions(self, target_positions):
-    #     """Set target positions for the 7 arm joints"""
-    #     for i in range(7):
-    #         p.setJointMotorControl2(
-    #             self.panda,
-    #             i,
-    #             p.POSITION_CONTROL,
-    #             targetPosition=target_positions[i],
-    #             force=500,
-    #             maxVelocity=0.5
-    #         )
-
-    # def get_ee_pose(self):
-    #     """Get end-effector (hand) position and orientation"""
-    #     return p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])
-
-    # def debug_draw_ee_target(self, target_pos):
-    #     """Visualize target end-effector position"""
-    #     current_pos = self.get_ee_pose()[0]
-    #     p.addUserDebugLine(
-    #         lineFromXYZ=current_pos,
-    #         lineToXYZ=target_pos,
-    #         lineColorRGB=[1, 0, 0],
-    #         lineWidth=2,
-    #         lifeTime=0.1
-    #     )
     
     def get_gripper_force(self):
         """Estimate gripper force based on contact points"""
@@ -495,30 +483,6 @@ class PandaController:
         plt.legend()
         plt.show()
 
-
-
-    # def _show_debug_markers(self):
-    #     """Show debug markers for platform and target positions"""
-    #     # Platform center marker
-    #     p.addUserDebugPoints(
-    #         pointPositions=[[0, 0, 0]],
-    #         pointColorsRGB=[[1, 0, 0]],
-    #         pointSize=10
-    #     )
-        
-    #     # Approach target marker
-    #     p.addUserDebugPoints(
-    #         pointPositions=[[0, 0, 0.15]],
-    #         pointColorsRGB=[[0, 1, 0]],
-    #         pointSize=10
-    #     )
-        
-    #     # Lift target marker
-    #     p.addUserDebugPoints(
-    #         pointPositions=[[0, 0, 0.5]],
-    #         pointColorsRGB=[[0, 0, 1]],
-    #         pointSize=10
-    #     )
 
 if __name__ == "__main__":
     controller = PandaController(mode="pickup")
