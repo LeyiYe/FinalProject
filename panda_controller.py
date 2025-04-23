@@ -95,7 +95,7 @@ class PandaController:
     def _position_hand_above_object(self):
         """Position the hand directly above the object using IK"""
         # Target position just above the object center
-        target_pos = [0.45, -0.45, 0.7]
+        target_pos = [0.5, -0.5, 0.56]
         target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])  # Standard gripper orientation
         
         # Calculate IK solution
@@ -104,7 +104,11 @@ class PandaController:
             self.hand_link_index,
             target_pos,
             targetOrientation=target_orn,
-            maxNumIterations=100
+            lowerLimits=[-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973],
+            upperLimits=[2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973],
+            jointRanges=[5.8, 3.5, 5.8, 3.0, 5.8, 3.7, 5.8],
+            maxNumIterations=200,
+            residualThreshold=1e-5
         )
         
         # Set arm joints to IK solution
