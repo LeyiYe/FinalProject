@@ -212,7 +212,7 @@ class PandaController:
             baseMass=0,  # Static platform
             baseCollisionShapeIndex=collision_shape,
             baseVisualShapeIndex=platform_shape,
-            basePosition=[0.5, -0.5, 0.5]  # Position of the platform
+            basePosition=[0, 0, 0.5]  # Position of the platform
         )
 
 
@@ -221,7 +221,7 @@ class PandaController:
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        platform_center = np.array([0.5, -0.5, 0.51])  # Slightly above platform
+        platform_center = np.array([0, 0, 0.51])  # Slightly above platform
 
         # Calculate particle bounds
         min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
