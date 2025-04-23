@@ -16,10 +16,18 @@ class PandaController:
         
         # Load plane and Panda hand
         self.plane_id = p.loadURDF("plane.urdf")
-        self.panda = p.loadURDF("franka_description/robots/common/hand.urdf", useFixedBase=True,
-                                 basePosition=[0.5, -0.5,0.58], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]))
-        # self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
-        
+        # self.panda = p.loadURDF("franka_description/robots/common/hand.urdf", useFixedBase=True,
+        #                          basePosition=[0.5, -0.5,0.58], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]))
+        self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
+
+        # Hide all links except hand and fingers
+        for i in range(p.getNumJoints(self.panda)):
+            joint_info = p.getJointInfo(self.panda, i)
+            joint_name = joint_info[1].decode("utf-8")
+            if "hand" not in joint_name and "finger" not in joint_name:
+                p.setCollisionFilterGroupMask(self.panda, i, 0, 0)  # Disable collisions
+                p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])  # Make invisible
+                
         # Create platform for the object
         self._create_platform()
         #self._position_hand_above_object()
@@ -439,13 +447,14 @@ class PandaController:
         """Main simulation loop with forced visualization updates"""
         while True:
             # SPH coupling
-            gripper_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
+            # gripper_pos = p.getLinkState(self.panda, self.joint_info['panda_hand_joint']['index'])[0]
+            gripper_pos = self.get_gripper_center()
             self._apply_gripper_to_sph(gripper_pos)
             reaction_force = self._compute_sph_reaction_force(gripper_pos)
             
             p.applyExternalForce(
                 self.panda,
-                self.joint_info['panda_hand_joint']['index'],
+                -1, # self.joint_info['panda_hand_joint']['index'],
                 forceObj=reaction_force,
                 posObj=gripper_pos,
                 flags=p.WORLD_FRAME
