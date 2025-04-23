@@ -16,7 +16,7 @@ class PandaController:
         
         # Load plane and Panda hand
         self.plane_id = p.loadURDF("plane.urdf")
-        self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
+        self.panda = p.loadURDF("franka_panda/panda_hand.urdf", useFixedBase=True)
         
         # Create platform for the object
         self._create_platform()
