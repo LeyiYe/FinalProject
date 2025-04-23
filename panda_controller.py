@@ -115,6 +115,9 @@ class PandaController:
                 p.setCollisionFilterGroupMask(self.panda, i, 0, 0)
                 p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])
 
+        print("Picked hand link:", self.hand_link_index,
+        p.getJointInfo(self.panda, self.hand_link_index)[12].decode())
+
     def _position_hand_above_object(self):
         """Position the hand directly above the object using IK"""
         obj_center = [
@@ -151,6 +154,7 @@ class PandaController:
                 force=500,
                 positionGain=0.3
             )  
+        print("Post‐init hand center:", self.get_gripper_center())
 
     def _setup_hand_control(self):
         """Initialize hand joint control parameters (for hand-only setup)"""

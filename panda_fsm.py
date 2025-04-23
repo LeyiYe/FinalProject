@@ -113,6 +113,7 @@ class PandaFSM:
                 current_center[2] + 0.01
             ]
             target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])
+            print("FSM lift: current center:", current_center, "target:", target_pos)
             joint_positions = p.calculateInverseKinematics(
                 self.controller.panda,
                 self.controller.hand_link_index,
@@ -133,6 +134,7 @@ class PandaFSM:
         else:
             print("Lift successful!")
             self.state = PandaState.DONE
+        
 
 
 
