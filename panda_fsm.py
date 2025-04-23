@@ -15,7 +15,7 @@ class PandaFSM:
         self.state = PandaState.OPEN
         self.controller = panda_controller
         self.timer = 0
-        self._init_variables()
+        self.controller._init_variables()
         self.lift_height = 0.3  # meters
         self.initial_height = self.controller.get_gripper_center()[2]
         self.contact_force = np.zeros(3)  # Track SPH reaction forces
