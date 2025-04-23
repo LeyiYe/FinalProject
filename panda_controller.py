@@ -16,32 +16,42 @@ class PandaController:
         
         # Load plane and Panda hand
         self.plane_id = p.loadURDF("plane.urdf")
-        self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
 
-        # Hide all links except hand and fingers
-        self.finger_joint_indices = []
-        self.hand_link_index = None
-        for i in range(p.getNumJoints(self.panda)):
-            joint_info = p.getJointInfo(self.panda, i)
-            joint_name = joint_info[1].decode("utf-8")
-
-            # Store hand and finger indices
-            if "hand" in joint_name:
-                self.hand_link_index = i
-            if "finger" in joint_name:
-                self.finger_joint_indices.append(i)
-
-
-            if "hand" not in joint_name and "finger" not in joint_name:
-                p.setCollisionFilterGroupMask(self.panda, i, 0, 0)  # Disable collisions
-                p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])  # Make invisible
-                
         # Create platform for the object
         self._create_platform()
 
+        # SPH Integration Additions
+        self.sph_app = DeformableObjectSim()
+        self.sph_solver = self.sph_app.create_solver()
+        self.sph_particles = self.sph_app.create_particles()
+        # Initialize SPH simulation
+        self._position_object_on_platform()
+
+        #load and position the panda hand
+        self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
+        self._configure_robot_visibility()
+
+        #configure robot hand visibility
         self._position_hand_above_object()
 
+        # Hide all links except hand and fingers
+        # self.finger_joint_indices = []
+        # self.hand_link_index = None
+        # for i in range(p.getNumJoints(self.panda)):
+        #     joint_info = p.getJointInfo(self.panda, i)
+        #     joint_name = joint_info[1].decode("utf-8")
 
+        #     # Store hand and finger indices
+        #     if "hand" in joint_name:
+        #         self.hand_link_index = i
+        #     if "finger" in joint_name:
+        #         self.finger_joint_indices.append(i)
+
+
+        #     if "hand" not in joint_name and "finger" not in joint_name:
+        #         p.setCollisionFilterGroupMask(self.panda, i, 0, 0)  # Disable collisions
+        #         p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])  # Make invisible
+                
         # Get joint information
         self.num_joints = p.getNumJoints(self.panda)
         self.joint_info = self._get_joint_info()
@@ -59,12 +69,8 @@ class PandaController:
                 'min_torque': -0.5
             },
         }
-        # SPH Integration Additions
-        self.sph_app = DeformableObjectSim()
-        self.sph_solver = self.sph_app.create_solver()
-        self.sph_particles = self.sph_app.create_particles()
-        self.force_feedback= []
 
+        self.force_feedback= []
         
         # Coupling parameters
         self.coupling_stiffness = 1e8  # N/m (tune based on material)
@@ -72,8 +78,7 @@ class PandaController:
         self.last_gripper_pos = np.zeros(3)
         self.particle_radius = 0.005  # Visual radius of particles
         
-        # Initialize SPH simulation
-        self._position_object_on_platform()
+
         self._create_sph_visualization()
         self._update_sph_kdtree()
 
@@ -91,6 +96,24 @@ class PandaController:
             cameraPitch=-30,
             cameraTargetPosition=[0.5, -0.5, 0.5]
         )
+
+    def _configure_robot_visibility(self):
+        """Hide all links except hand and fingers"""
+        self.finger_joint_indices = []
+        self.hand_link_index = None
+        
+        for i in range(p.getNumJoints(self.panda)):
+            joint_info = p.getJointInfo(self.panda, i)
+            joint_name = joint_info[1].decode("utf-8")
+
+            if "hand" in joint_name:
+                self.hand_link_index = i
+            if "finger" in joint_name:
+                self.finger_joint_indices.append(i)
+
+            if "hand" not in joint_name and "finger" not in joint_name:
+                p.setCollisionFilterGroupMask(self.panda, i, 0, 0)
+                p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])
 
     def _position_hand_above_object(self):
         """Position the hand directly above the object using IK"""
