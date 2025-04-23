@@ -94,8 +94,14 @@ class PandaController:
 
     def _position_hand_above_object(self):
         """Position the hand directly above the object using IK"""
-        # Target position just above the object center
-        target_pos = [0.5, -0.5, 0.56]
+        obj_center = [
+            np.mean(self.sph_particles.x),
+            np.mean(self.sph_particles.y),
+            np.max(self.sph_particles.z)  # Use max Z since particles may vary in height
+        ]
+        
+        # Target position 5cm above object center
+        target_pos = [obj_center[0], obj_center[1], obj_center[2] + 0.05]
         target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])  # Standard gripper orientation
         
         # Calculate IK solution
@@ -106,7 +112,7 @@ class PandaController:
             targetOrientation=target_orn,
             lowerLimits=[-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973],
             upperLimits=[2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973],
-            jointRanges=[5.8, 3.5, 5.8, 3.0, 5.8, 3.7, 5.8],
+            jointDamping=[0.1]*7,
             maxNumIterations=200,
             residualThreshold=1e-5
         )
@@ -193,14 +199,18 @@ class PandaController:
             return
             
         platform_center = np.array([0.5, -0.5, 0.51])  # Slightly above platform
+
+        # Calculate particle bounds
+        min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
+        min_y, max_y = np.min(self.sph_particles.y), np.max(self.sph_particles.y)
+        min_z = np.min(self.sph_particles.z)
         
-        # Create a 10cm cube of particles centered on the platform
-
-        x_offset = platform_center[0] - np.mean(self.sph_particles.x)
-        y_offset = platform_center[1] - np.mean(self.sph_particles.y)
-        z_offset = platform_center[2] - np.min(self.sph_particles.z)
-
-        # Apply offsets while preserving the cube structure
+        # Calculate required offsets
+        x_offset = platform_center[0] - (min_x + max_x)/2
+        y_offset = platform_center[1] - (min_y + max_y)/2
+        z_offset = platform_center[2] - min_z  # Align bottom with platform
+        
+        # Apply offsets
         self.sph_particles.x += x_offset
         self.sph_particles.y += y_offset
         self.sph_particles.z += z_offset   
