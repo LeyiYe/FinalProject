@@ -124,7 +124,7 @@ class PandaController:
         ]
         
         # Target position 5cm above object center
-        target_pos = [obj_center[0], obj_center[1], obj_center[2]]
+        target_pos = [obj_center[0], obj_center[1], obj_center[2] - 0.01]
         target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])  # Standard gripper orientation
         
         # Calculate IK solution
