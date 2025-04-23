@@ -4,7 +4,7 @@ import pybullet as p
 
 class PandaState(Enum):
     OPEN = auto()       # Open gripper fully
-    APPROACH = auto()   # Move to pre-grasp position
+    #APPROACH = auto()   # Move to pre-grasp position
     CLOSE = auto()      # Close until contact detected
     GRASP = auto()      # Apply stabilizing force
     LIFT = auto()       # Raise the object
@@ -16,13 +16,15 @@ class PandaFSM:
         self.controller = panda_controller
         self.timer = 0
         self._init_variables()
-
-    def _init_variables(self):
-        """Initialize state variables"""
+        self.lift_height = 0.3  # meters
+        self.initial_height = self.controller.get_gripper_center()[2]
         self.contact_force = np.zeros(3)  # Track SPH reaction forces
         self.grasp_force_history = []
-        self.lift_height = 0.3  # meters
         self.grasp_stable_counter = 0
+
+    # def _init_variables(self):
+    #     """Initialize state variables"""
+
 
     def update(self):
         """Main FSM update loop"""
@@ -38,8 +40,8 @@ class PandaFSM:
         # State machine logic
         if self.state == PandaState.OPEN:
             self._open_state()
-        elif self.state == PandaState.APPROACH:
-            self._approach_state()
+        # elif self.state == PandaState.APPROACH:
+        #     self._approach_state()
         elif self.state == PandaState.CLOSE:
             self._close_state()
         elif self.state == PandaState.GRASP:
@@ -62,34 +64,34 @@ class PandaFSM:
             print("Gripper fully open, approaching object")
             self.state = PandaState.APPROACH
 
-    def _approach_state(self):
-        """Position gripper above the object"""
-        target_pos = [0.5, -0.5, 0.15]  # Above platform center
-        current_pos = self.get_gripper_center()
+    # def _approach_state(self):
+    #     """Position gripper above the object"""
+    #     target_pos = [0.5, -0.5, 0.15]  # Above platform center
+    #     current_pos = self.get_gripper_center()
         
-        # Calculate IK for target position
-        target_joints = p.calculateInverseKinematics(
-            self.controller.panda,
-            self.controller.joint_info['panda_hand_joint']['index'],
-            target_pos,
-            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
-            maxNumIterations=100,
-            residualThreshold=1e-4)
+    #     # Calculate IK for target position
+    #     target_joints = p.calculateInverseKinematics(
+    #         self.controller.panda,
+    #         self.controller.joint_info['panda_hand_joint']['index'],
+    #         target_pos,
+    #         targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
+    #         maxNumIterations=100,
+    #         residualThreshold=1e-4)
         
-        # Move arm joints (first 7)
-        for i in range(7):
-            p.setJointMotorControl2(
-                self.controller.panda,
-                i,
-                p.POSITION_CONTROL,
-                targetPosition=target_joints[i],
-                force=500, 
-                maxVelocity=0.5) #limit velocity
+    #     # Move arm joints (first 7)
+    #     for i in range(7):
+    #         p.setJointMotorControl2(
+    #             self.controller.panda,
+    #             i,
+    #             p.POSITION_CONTROL,
+    #             targetPosition=target_joints[i],
+    #             force=500, 
+    #             maxVelocity=0.5) #limit velocity
         
-        # Check if reached position
-        if np.linalg.norm(np.array(target_pos) - np.array(current_pos)) < 0.02:
-            print("Approach complete, starting to close")
-            self.state = PandaState.CLOSE
+    #     # Check if reached position
+    #     if np.linalg.norm(np.array(target_pos) - np.array(current_pos)) < 0.02:
+    #         print("Approach complete, starting to close")
+    #         self.state = PandaState.CLOSE
 
     def _close_state(self):
         """Close gripper until contact with deformable object"""
@@ -129,31 +131,30 @@ class PandaFSM:
 
     def _lift_state(self):
         """Lift object while maintaining grasp"""
-        current_pos = self.controller.get_ee_pose()[0]
+        current_pos = self.controller.get_gripper_center()
         
-        # Target position (lift straight up)
-        target_pos = [current_pos[0], current_pos[1], self.lift_height]
+        # Calculate vertical distance moved
+        height_achieved = current_pos[2] - self.initial_height
         
-        # Calculate IK for lift
-        lift_joints = p.calculateInverseKinematics(
-            self.controller.panda,
-            self.controller.joint_info['panda_hand_joint']['index'],
-            target_pos,
-            targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
-            maxNumIterations=100
-        )
-        
-        # Move arm
-        self.controller.set_arm_joint_positions(lift_joints[:7])
-        
-        # Maintain grasp force
-        current_force = np.linalg.norm(self.contact_force)
-        if current_force < 5.0:  # Object dropped
-            print("Object dropped during lift!")
-            self.state = PandaState.DONE
-        elif current_pos[2] > self.lift_height - 0.01:
+        # Simple upward velocity control
+        lift_speed = 0.05  # m/s
+        if height_achieved < self.lift_height:
+            # Move entire hand upward
+            new_pos = [current_pos[0], current_pos[1], current_pos[2] + lift_speed/240.0]
+            p.resetBasePositionAndOrientation(
+                self.controller.panda,
+                posObj=new_pos,
+                ornObj=p.getQuaternionFromEuler([0, 0, 0]))
+            
+            # Maintain grasp force
+            current_force = np.linalg.norm(self.contact_force)
+            if current_force < 5.0:  # Object dropped
+                print("Object dropped during lift!")
+                self.state = PandaState.DONE
+        else:
             print("Lift successful!")
             self.state = PandaState.DONE
+
 
     def get_gripper_center(self):
         """Helper to compute midpoint between fingers"""

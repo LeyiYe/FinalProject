@@ -141,6 +141,21 @@ class PandaController:
         
         print(f"Particle positions initialized around {platform_center}")
 
+    def _position_hand_above_object(self):
+        """Position gripper directly above the object center"""
+        # Get object center (platform center + slight offset)
+        object_center = [0.5, -0.5, 0.53]  # Slightly above platform
+        
+        # Position hand 5cm above object
+        hand_position = [object_center[0], object_center[1], object_center[2] + 0.05]
+        
+        # Reset hand base position
+        p.resetBasePositionAndOrientation(
+            self.panda,
+            posObj=hand_position,
+            ornObj=p.getQuaternionFromEuler([0, 0, 0])  # Neutral orientation
+        )
+
         
     def _init_variables(self):
         """Initialize all state variables"""
