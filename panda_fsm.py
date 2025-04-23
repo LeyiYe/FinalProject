@@ -62,7 +62,7 @@ class PandaFSM:
         # Transition when fully open (joint positions > threshold)
         if all(p > 0.04 for p in self.controller.get_gripper_positions()):
             print("Gripper fully open, approaching object")
-            self.state = PandaState.APPROACH
+            self.state = PandaState.CLOSE
 
     # def _approach_state(self):
     #     """Position gripper above the object"""
