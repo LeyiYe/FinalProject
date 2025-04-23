@@ -21,6 +21,8 @@ class PandaController:
         
         # Create platform for the object
         self._create_platform()
+        self._position_hand_above_object()
+
 
         # Get joint information
         self.num_joints = p.getNumJoints(self.panda)
@@ -62,7 +64,7 @@ class PandaController:
         self.fsm = PandaFSM(self)
 
         # Setup arm control
-        self._setup_arm_control()
+        self._setup_hand_control()
 
         # Camera setup to view the platform
         p.resetDebugVisualizerCamera(
@@ -73,27 +75,43 @@ class PandaController:
         )
 
 
-    def _setup_arm_control(self):
-        """Initialize arm joint control parameters"""
-        # Enable position control for arm joints
-        for i in range(7):  # First 7 joints are the arm
-            p.resetJointState(self.panda, i, targetValue=0)
+    def _setup_hand_control(self):
+        """Initialize hand joint control parameters (for hand-only setup)"""
+        # Get all joint information
+        num_joints = p.getNumJoints(self.panda)
+        print(f"Total joints in loaded model: {num_joints}")
+        
+        # Find finger joints (they should be the only movable joints in hand-only mode)
+        finger_joints = []
+        for i in range(num_joints):
+            joint_info = p.getJointInfo(self.panda, i)
+            joint_name = joint_info[1].decode("utf-8")
+            joint_type = joint_info[2]
+            
+            print(f"Joint {i}: {joint_name} (type: {joint_type})")
+            
+            # Look for finger joints (typically 'panda_finger_joint1' and 'panda_finger_joint2')
+            if "finger" in joint_name.lower() and joint_type != p.JOINT_FIXED:
+                finger_joints.append(i)
+        
+        # Initialize control for finger joints only
+        for joint_idx in finger_joints:
+            p.resetJointState(self.panda, joint_idx, targetValue=0)
             p.setJointMotorControl2(
                 self.panda,
-                i,
+                joint_idx,
                 p.POSITION_CONTROL,
                 targetPosition=0,
-                force=500,
+                force=10,  # Reduced force for fingers
                 positionGain=0.1
             )
-            p.changeDynamics(self.panda, i, linearDamping=0.1, angularDamping=0.1)
+            p.changeDynamics(self.panda, joint_idx, 
+                            linearDamping=0.1, 
+                            angularDamping=0.1)
         
-        # Print joint limits for debugging
-        print("Joint limits:")
-        for i in range(7):
-            info = p.getJointInfo(self.panda, i)
-            print(f"Joint {i}: {info[8]} to {info[9]}")
-    
+        # Store finger joint indices for later use
+        self.finger_joint_indices = finger_joints
+        print(f"Initialized control for finger joints: {finger_joints}")
 
     def _create_platform(self):
         """Create a platform for the object to rest on"""
