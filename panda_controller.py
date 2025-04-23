@@ -19,6 +19,7 @@ class PandaController:
         self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
 
         # Hide all links except hand and fingers
+        self.finger_joint_indices = []
         self.hand_link_index = None
         for i in range(p.getNumJoints(self.panda)):
             joint_info = p.getJointInfo(self.panda, i)
