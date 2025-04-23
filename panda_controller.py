@@ -95,7 +95,7 @@ class PandaController:
     def _position_hand_above_object(self):
         """Position the hand directly above the object using IK"""
         # Target position just above the object center
-        target_pos = [0.55, -0.55, 0.6]
+        target_pos = [0.6, -0.6, 0.7]
         target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])  # Standard gripper orientation
         
         # Calculate IK solution
