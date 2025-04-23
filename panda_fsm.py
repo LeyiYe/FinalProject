@@ -64,34 +64,6 @@ class PandaFSM:
             print("Gripper fully open, approaching object")
             self.state = PandaState.CLOSE
 
-    # def _approach_state(self):
-    #     """Position gripper above the object"""
-    #     target_pos = [0.5, -0.5, 0.15]  # Above platform center
-    #     current_pos = self.get_gripper_center()
-        
-    #     # Calculate IK for target position
-    #     target_joints = p.calculateInverseKinematics(
-    #         self.controller.panda,
-    #         self.controller.joint_info['panda_hand_joint']['index'],
-    #         target_pos,
-    #         targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
-    #         maxNumIterations=100,
-    #         residualThreshold=1e-4)
-        
-    #     # Move arm joints (first 7)
-    #     for i in range(7):
-    #         p.setJointMotorControl2(
-    #             self.controller.panda,
-    #             i,
-    #             p.POSITION_CONTROL,
-    #             targetPosition=target_joints[i],
-    #             force=500, 
-    #             maxVelocity=0.5) #limit velocity
-        
-    #     # Check if reached position
-    #     if np.linalg.norm(np.array(target_pos) - np.array(current_pos)) < 0.02:
-    #         print("Approach complete, starting to close")
-    #         self.state = PandaState.CLOSE
 
     def _close_state(self):
         """Close gripper until contact with deformable object"""
@@ -130,30 +102,37 @@ class PandaFSM:
             self.state = PandaState.LIFT
 
     def _lift_state(self):
-        """Lift object while maintaining grasp"""
-        current_pos = self.controller.get_gripper_center()
-        
-        # Calculate vertical distance moved
-        height_achieved = current_pos[2] - self.initial_height
-        
-        # Simple upward velocity control
-        lift_speed = 0.05  # m/s
+        current_center = self.get_gripper_center()
+        height_achieved = current_center[2] - self.initial_height
+
         if height_achieved < self.lift_height:
-            # Move entire hand upward
-            new_pos = [current_pos[0], current_pos[1], current_pos[2] + lift_speed/240.0]
-            p.resetBasePositionAndOrientation(
+            # target  lift 1cm per update (or scale by dt)
+            target_pos = [
+                current_center[0],
+                current_center[1],
+                current_center[2] + 0.01
+            ]
+            target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])
+            joint_positions = p.calculateInverseKinematics(
                 self.controller.panda,
-                posObj=new_pos,
-                ornObj=p.getQuaternionFromEuler([0, 0, 0]))
-            
-            # Maintain grasp force
-            current_force = np.linalg.norm(self.contact_force)
-            if current_force < 5.0:  # Object dropped
-                print("Object dropped during lift!")
-                self.state = PandaState.DONE
+                self.controller.hand_link_index,
+                target_pos,
+                targetOrientation=target_orn,
+                lowerLimits=[...], upperLimits=[...],
+                jointDamping=[0.1]*7
+            )
+            # apply to first 7 joints
+            for i in range(7):
+                p.setJointMotorControl2(
+                    self.controller.panda, i,
+                    p.POSITION_CONTROL,
+                    targetPosition=joint_positions[i],
+                    force=500, positionGain=0.3
+                )
         else:
             print("Lift successful!")
             self.state = PandaState.DONE
+
 
 
     def get_gripper_center(self):

@@ -37,12 +37,6 @@ class DeformableObjectSim(Application):
         y = y.ravel()
         z = z.ravel()
 
-        # # Filter out some particles for performance if needed
-        # mask = (x**2 + y**2 + z**2) <= (object_size/2)**2
-        # x = x[mask]
-        # y = y[mask]
-        # z = z[mask]
-
         density = 1000  # kg/m³
         particle_mass = (dx**3) * density
 
