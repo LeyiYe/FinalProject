@@ -21,14 +21,14 @@ class PandaFSM:
         self.contact_force = np.zeros(3)  # Track SPH reaction forces
         self.grasp_force_history = []
         self.grasp_stable_counter = 0
-
-    # def _init_variables(self):
-    #     """Initialize state variables"""
-
-
+        
     def update(self):
         """Main FSM update loop"""
         self.timer += 1
+
+        if self.timer % 10 == 0:
+            print(f"\n[{self.timer}] Current State: {self.state_names[self.state]}")
+            print(f"Gripper positions: {self.controller.get_gripper_positions()}")
         
         # Get current gripper state
         gripper_center = self.get_gripper_center()
