@@ -25,7 +25,6 @@ class PandaFSM:
         # State name mapping for display
         self.state_names = {
             PandaState.OPEN: "OPEN",
-            PandaState.APPROACH: "APPROACH",
             PandaState.CLOSE: "CLOSE",
             PandaState.GRASP: "GRASP",
             PandaState.LIFT: "LIFT",
