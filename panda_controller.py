@@ -34,6 +34,9 @@ class PandaController:
         self.num_joints = p.getNumJoints(self.panda)
         self.joint_info = self._get_joint_info()
 
+        # Open gripper fingers immediately after loading
+        self._open_gripper()
+
         self._configure_robot_visibility()
 
         #configure robot hand visibility
@@ -54,7 +57,7 @@ class PandaController:
         }
 
         self.force_feedback= []
-        
+
         # Coupling parameters
         self.coupling_stiffness = 1e8  # N/m (tune based on material)
         self.gripper_influence_radius = 0.02  # meters
@@ -79,6 +82,25 @@ class PandaController:
             cameraPitch=-30,
             cameraTargetPosition=[0.5, -0.5, 0.5]
         )
+
+    def _open_gripper(self):
+        """Set gripper fingers to open position"""
+        # Set target positions for both fingers (values may need adjustment)
+        open_position = 0.04  # Experiment with this value
+        
+        for joint_name in ['panda_finger_joint1', 'panda_finger_joint2']:
+            if joint_name in self.joint_info:
+                joint_idx = self.joint_info[joint_name]['index']
+                p.resetJointState(self.panda, joint_idx, targetValue=open_position)
+                p.setJointMotorControl2(
+                    self.panda,
+                    joint_idx,
+                    p.POSITION_CONTROL,
+                    targetPosition=open_position,
+                    force=20,  # Reduced force for smoother opening
+                    positionGain=0.1
+                )
+        print("Gripper set to open position")
 
     def _configure_robot_visibility(self):
         """Hide all links except hand and fingers"""
