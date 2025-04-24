@@ -114,35 +114,36 @@ class PandaFSM:
         height_achieved = current_center[2] - self.initial_height
 
         if height_achieved < self.lift_height:
-            # target  lift 1cm per update (or scale by dt)
+            # Smoother target calculation
             target_pos = [
                 current_center[0],
                 current_center[1],
-                current_center[2] + 0.01
+                current_center[2] + 0.001  # Smaller increment
             ]
-            target_orn = p.getQuaternionFromEuler([0, -np.pi, 0])
-            print("FSM lift: current center:", current_center, "target:", target_pos)
+            
+            # Add joint velocity limits
             joint_positions = p.calculateInverseKinematics(
                 self.controller.panda,
                 self.controller.hand_link_index,
                 target_pos,
-                targetOrientation=target_orn,
-                lowerLimits=[-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973], 
-                upperLimits=[ 2.8973,  1.7628,  2.8973, -0.0698,  2.8973,  3.7525,  2.8973],
-                jointDamping=[0.1]*7
+                targetOrientation=p.getQuaternionFromEuler([0, -np.pi, 0]),
+                lowerLimits=[-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973],
+                upperLimits=[2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973],
+                jointDamping=[0.1]*7,
+                maxNumIterations=200
             )
-            # apply to first 7 joints
-            for i in range(7):
-                p.setJointMotorControl2(
-                    self.controller.panda, i,
-                    p.POSITION_CONTROL,
-                    targetPosition=joint_positions[i],
-                    force=500, positionGain=0.3
-                )
-        else:
-            print("Lift successful!")
-            self.state = PandaState.DONE
-        
+            
+            # Validate solution before applying
+            if self._validate_ik(joint_positions):
+                for i in range(7):
+                    p.setJointMotorControl2(
+                        self.controller.panda, i,
+                        p.POSITION_CONTROL,
+                        targetPosition=joint_positions[i],
+                        force=300,  # Reduced force
+                        positionGain=0.2,
+                        maxVelocity=0.2  # Velocity limit
+                    )
 
 
 
