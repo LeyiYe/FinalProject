@@ -82,7 +82,7 @@ class PandaController:
             cameraDistance=1.5,
             cameraYaw=45,
             cameraPitch=-30,
-            cameraTargetPosition=[0.5, -0.5, 0.5]
+            cameraTargetPosition=[0.5, 0.5, 0]
         )
 
     def _open_gripper(self):
@@ -120,7 +120,7 @@ class PandaController:
 
             if "hand" not in joint_name and "finger" not in joint_name:
                 p.setCollisionFilterGroupMask(self.panda, i, 0, 0)
-                p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])
+                #p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])
 
         print("Picked hand link:", self.hand_link_index,
         p.getJointInfo(self.panda, self.hand_link_index)[12].decode())
@@ -223,7 +223,7 @@ class PandaController:
             baseMass=0,  # Static platform
             baseCollisionShapeIndex=collision_shape,
             baseVisualShapeIndex=platform_shape,
-            basePosition=[0.5, -0.5, 0]  # Position of the platform
+            basePosition=[0.5, 0.5, 0]  # Position of the platform
         )
 
 
@@ -232,7 +232,7 @@ class PandaController:
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        platform_center = np.array([0.5, -0.5, 0.01])  # Slightly above platform
+        platform_center = np.array([0.5, 0.5, 0.01])  # Slightly above platform
 
         # Calculate particle bounds
         min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
