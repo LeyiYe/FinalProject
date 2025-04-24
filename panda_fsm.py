@@ -61,6 +61,7 @@ class PandaFSM:
             return False  # Stop simulation
         
         return True  # Continue running
+    
 
     def _open_state(self):
         """Fully open gripper before approach"""
@@ -129,20 +130,31 @@ class PandaFSM:
                 lowerLimits=[-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973],
                 upperLimits=[2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973],
                 jointDamping=[0.1]*7,
-                maxNumIterations=200
+                maxNumIterations=200,
+                jointIndices=[self.movable_joints[:7]]
             )
             
+            for i in self.movable_joints[:7]:  # Only movable arm joints
+                p.setJointMotorControl2(
+                self.controller.panda, i,
+                p.POSITION_CONTROL,
+                targetPosition=joint_positions[i],
+                force=300,
+                maxVelocity=0.2
+                )
+            
             # Validate solution before applying
-            if self._validate_ik(joint_positions):
-                for i in range(7):
-                    p.setJointMotorControl2(
-                        self.controller.panda, i,
-                        p.POSITION_CONTROL,
-                        targetPosition=joint_positions[i],
-                        force=300,  # Reduced force
-                        positionGain=0.2,
-                        maxVelocity=0.2  # Velocity limit
-                    )
+            # if self._validate_ik(joint_positions):
+            #     for i in range(7):
+            #         if p.getJointInfo(self.controller.panda, i)[2] != p.JOINT_FIXED:
+            #             p.setJointMotorControl2(
+            #                 self.controller.panda, i,
+            #                 p.POSITION_CONTROL,
+            #                 targetPosition=joint_positions[i],
+            #                 force=300,  # Reduced force
+            #                 positionGain=0.2,
+            #                 maxVelocity=0.2  # Velocity limit
+            #             )
 
 
 

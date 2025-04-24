@@ -31,6 +31,8 @@ class PandaController:
         self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
 
         # Get joint information
+        self.movable_joints = self._validate_joints()
+        print(f"Controlling joints: {self.movable_joints}")
         self.num_joints = p.getNumJoints(self.panda)
         self.joint_info = self._get_joint_info()
 
@@ -295,6 +297,15 @@ class PandaController:
             }
         return joint_info
     
+    def _validate_joints(self):
+        """Check which joints are actually movable"""
+        movable_joints = []
+        for i in range(p.getNumJoints(self.controller.panda)):
+            joint_type = p.getJointInfo(self.controller.panda, i)[2]
+            if joint_type != p.JOINT_FIXED:
+                movable_joints.append(i)
+        print(f"Movable joints: {movable_joints}")
+        return movable_joints
     
     def get_gripper_force(self):
         """Estimate gripper force based on contact points"""
