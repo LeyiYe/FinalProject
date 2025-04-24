@@ -300,8 +300,8 @@ class PandaController:
     def _validate_joints(self):
         """Check which joints are actually movable"""
         movable_joints = []
-        for i in range(p.getNumJoints(self.controller.panda)):
-            joint_type = p.getJointInfo(self.controller.panda, i)[2]
+        for i in range(p.getNumJoints(self.panda)):
+            joint_type = p.getJointInfo(self.panda, i)[2]
             if joint_type != p.JOINT_FIXED:
                 movable_joints.append(i)
         print(f"Movable joints: {movable_joints}")
