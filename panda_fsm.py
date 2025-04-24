@@ -21,7 +21,17 @@ class PandaFSM:
         self.contact_force = np.zeros(3)  # Track SPH reaction forces
         self.grasp_force_history = []
         self.grasp_stable_counter = 0
-        
+
+        # State name mapping for display
+        self.state_names = {
+            PandaState.OPEN: "OPEN",
+            PandaState.APPROACH: "APPROACH",
+            PandaState.CLOSE: "CLOSE",
+            PandaState.GRASP: "GRASP",
+            PandaState.LIFT: "LIFT",
+            PandaState.DONE: "DONE"
+        }
+
     def update(self):
         """Main FSM update loop"""
         self.timer += 1
