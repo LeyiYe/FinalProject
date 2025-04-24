@@ -21,13 +21,13 @@ class PandaController:
         # Create platform for the object
         self._create_platform()
 
-        # SPH Integration Additions
+        # SPH Integration Additionsbv
         self.sph_app = DeformableObjectSim()
         self.sph_solver = self.sph_app.create_solver()
         self.sph_particles = self.sph_app.create_particles()
         
         # Position object on platform
-        self._position_object_on_platform()
+       # self._position_object_on_platform()
 
         # Load full Panda arm
         self.panda = self._load_panda_arm()
