@@ -4,7 +4,6 @@ import pybullet as p
 
 class PandaState(Enum):
     OPEN = auto()       # Open gripper fully
-    #APPROACH = auto()   # Move to pre-grasp position
     CLOSE = auto()      # Close until contact detected
     GRASP = auto()      # Apply stabilizing force
     LIFT = auto()       # Raise the object
@@ -36,7 +35,7 @@ class PandaFSM:
         """Main FSM update loop"""
         self.timer += 1
 
-        if self.timer % 10 == 0:
+        if self.timer % 5 == 0:
             print(f"\n[{self.timer}] Current State: {self.state_names[self.state]}")
         
         # Get current gripper state
@@ -110,9 +109,15 @@ class PandaFSM:
             self.state = PandaState.LIFT
 
     def _lift_state(self):
+
         current_center = self.get_gripper_center()
         height_achieved = current_center[2] - self.initial_height
 
+        if height_achieved >= self.lift_height:
+            print("Lift completed successfully")
+            self.state = PandaState.DONE
+            return
+        
         if height_achieved < self.lift_height:
             # Smoother target calculation
             target_pos = [
