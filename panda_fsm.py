@@ -67,7 +67,7 @@ class PandaFSM:
 
     def _close_state(self):
         """Close gripper until contact with deformable object"""
-        closing_speed = -0.3  # Slow closing speed
+        closing_speed = -0.1  # Slow closing speed
         self.controller.set_gripper_velocity(closing_speed, closing_speed)
         
         # Check SPH reaction force magnitude for contact
