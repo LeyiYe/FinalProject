@@ -232,7 +232,7 @@ class PandaController:
         if not hasattr(self, 'sph_particles') or self.sph_particles is None:
             return
             
-        platform_center = np.array([0.5, 0.5, 0.01])  # Slightly above platform
+        platform_center = np.array([0.5, -0.5, 0.01])  # Slightly above platform
 
         # Calculate particle bounds
         min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
