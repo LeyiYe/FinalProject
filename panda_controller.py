@@ -441,8 +441,6 @@ class PandaController:
 
     def _compute_sph_reaction_force(self, gripper_pos):
         """Calculate reaction force from SPH particles"""
-        print(f"Gripper pos: {gripper_pos}")
-        print(f"Particle range: x[{min(self.sph_particles.x):.3f}-{max(self.sph_particles.x):.3f}]")
         neighbor_indices = self.sph_kdtree.query_ball_point(
             gripper_pos,
             self.gripper_influence_radius

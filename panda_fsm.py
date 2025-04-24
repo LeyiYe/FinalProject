@@ -37,7 +37,6 @@ class PandaFSM:
 
         if self.timer % 10 == 0:
             print(f"\n[{self.timer}] Current State: {self.state_names[self.state]}")
-            print(f"Gripper positions: {self.controller.get_gripper_positions()}")
         
         # Get current gripper state
         gripper_center = self.get_gripper_center()
