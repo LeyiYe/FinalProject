@@ -438,7 +438,8 @@ class PandaController:
             self.sph_particles.u[i] = gripper_vel[0] * 240.0  # Scale by timestep
             self.sph_particles.v[i] = gripper_vel[1] * 240.0
             self.sph_particles.w[i] = gripper_vel[2] * 240.0
-
+        print(f"Particles near gripper: {len(neighbor_indices)}")
+        
     def _compute_sph_reaction_force(self, gripper_pos):
         """Calculate reaction force from SPH particles"""
         neighbor_indices = self.sph_kdtree.query_ball_point(

@@ -21,6 +21,7 @@ class PandaFSM:
         self.contact_force = np.zeros(3)  # Track SPH reaction forces
         self.grasp_force_history = []
         self.grasp_stable_counter = 0
+        self.gripper_pos = self.controller.get_gripper_positions()
 
         # State name mapping for display
         self.state_names = {
@@ -40,7 +41,7 @@ class PandaFSM:
         
         # Get current gripper state
         gripper_center = self.get_gripper_center()
-        gripper_pos = self.controller.get_gripper_positions()
+        self.gripper_pos = self.controller.get_gripper_positions()
         
         # Compute SPH reaction force for contact detection
         self.contact_force = self.controller._compute_sph_reaction_force(gripper_center)
@@ -48,8 +49,6 @@ class PandaFSM:
         # State machine logic
         if self.state == PandaState.OPEN:
             self._open_state()
-        # elif self.state == PandaState.APPROACH:
-        #     self._approach_state()
         elif self.state == PandaState.CLOSE:
             self._close_state()
         elif self.state == PandaState.GRASP:
@@ -65,10 +64,10 @@ class PandaFSM:
 
     def _open_state(self):
         """Fully open gripper before approach"""
-        self.controller.set_gripper_velocity(0.5, 0.5)  # Open fast
+        self.controller.set_gripper_velocity(0.2, 0.2)  # Open fast
         
         # Transition when fully open (joint positions > threshold)
-        if all(p > 0.04 for p in self.controller.get_gripper_positions()):
+        if all(p > 0.04 for p in self.gripper_pos):
             print("Gripper fully open, approaching object")
             self.state = PandaState.CLOSE
 
