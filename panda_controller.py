@@ -29,32 +29,15 @@ class PandaController:
 
         #load and position the panda hand
         self.panda = p.loadURDF("franka_panda/panda.urdf", useFixedBase=True)
+
+        # Get joint information
+        self.num_joints = p.getNumJoints(self.panda)
+        self.joint_info = self._get_joint_info()
+
         self._configure_robot_visibility()
 
         #configure robot hand visibility
         self._position_hand_above_object()
-
-        # Hide all links except hand and fingers
-        # self.finger_joint_indices = []
-        # self.hand_link_index = None
-        # for i in range(p.getNumJoints(self.panda)):
-        #     joint_info = p.getJointInfo(self.panda, i)
-        #     joint_name = joint_info[1].decode("utf-8")
-
-        #     # Store hand and finger indices
-        #     if "hand" in joint_name:
-        #         self.hand_link_index = i
-        #     if "finger" in joint_name:
-        #         self.finger_joint_indices.append(i)
-
-
-        #     if "hand" not in joint_name and "finger" not in joint_name:
-        #         p.setCollisionFilterGroupMask(self.panda, i, 0, 0)  # Disable collisions
-        #         p.changeVisualShape(self.panda, i, rgbaColor=[0, 0, 0, 0])  # Make invisible
-                
-        # Get joint information
-        self.num_joints = p.getNumJoints(self.panda)
-        self.joint_info = self._get_joint_info()
         
         # Configuration parameters
         self.config = {
