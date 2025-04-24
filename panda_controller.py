@@ -15,7 +15,7 @@ class PandaController:
         p.setGravity(0, 0, -9.81)
         
         # Load plane and Panda hand
-        self.plane_id = p.loadURDF("plane.urdf")
+        #self.plane_id = p.loadURDF("plane.urdf")
 
         # Create platform for the object
         self._create_platform()
