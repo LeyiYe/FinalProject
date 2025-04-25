@@ -237,11 +237,15 @@ class PandaSim(object):
 
 
   def step(self, graspWidth):
-    try:
-        next(self.sph_iterator)
-    except StopIteration:
-        print("SPH simulation completed")
-        self.sph_iterator = iter(self.sph_solver.solve())
+    # try:
+    #     next(self.sph_iterator)
+    # except StopIteration:
+    #     print("SPH simulation completed")
+    #     self.sph_iterator = iter(self.sph_solver.solve())
+
+    self.sph_solver.compute(self.sph_time, self.sph_dt)
+    self.sph_time += self.sph_dt
+    self.sph_solver.particles.update()
 
     self._update_sph_visualization()
     # 设置抓取器张开宽度
