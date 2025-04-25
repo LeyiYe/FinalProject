@@ -104,38 +104,43 @@ class DeformableObjectSim(Application):
                     rho0=1000.0, c0=140.0, gamma=7.0  # Higher sound speed
                 ),
 
+            ], real=True),
+
                 # Elastic stress formulation
-                Group(
-                    equations=[
-                        HookesDeviatoricStressRate(
-                            dest='object', sources=['object']
-                        ),
-                        MomentumEquationWithStress(
-                            dest='object', sources=['object']  # Higher viscosity
-                        )
-                    ], real =True
-                ),
+            Group(
+                equations=[
+                    HookesDeviatoricStressRate(
+                        dest='object', sources=['object']
+                    ),
+                    MomentumEquationWithStress(
+                        dest='object', sources=['object']  # Higher viscosity
+                    )
+                ], real =True
+            ),
 
                 # Enhanced cohesion
-                Group(
-                    equations=[
-                        CohesiveForce(
-                            dest='object', sources=['object'],
-                            k=1e6  # Higher cohesion stiffness
-                        )], real=True
-                ),
-                
+            Group(
+                equations=[
+                    CohesiveForce(
+                        dest='object', sources=['object'],
+                        k=1e6  # Higher cohesion stiffness
+                    )], real=True
+            ),
+            
                 #Artificial stress and viscosity
-                MonaghanArtificialStress(dest='object', 
-                                        sources=['object'],
-                                        eps=1.0),
-                XSPHCorrection(
-                    dest='object', 
-                    sources=['object'],
-                    eps=0.5  # Smother motion
-                )
-                ], real=True)
-            ]
+            Group(
+                equations=[
+                    MonaghanArtificialStress(dest='object', 
+                                    sources=['object'],
+                                    eps=1.0),
+                    XSPHCorrection(
+                        dest='object', 
+                        sources=['object'],
+                        eps=0.5  # Smother motion
+                    )
+                ], real=True
+            )
+        ]
         return equations
 
 
