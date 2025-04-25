@@ -23,6 +23,8 @@ import numpy as np
 class CohesiveForce(Equation):
     def __init__(self, dest, sources, k=1e6):
         self.k = k  # Cohesion stiffness
+        self.object_size = 0.05  # 5cm cube
+        self.kernel = CubicSpline(dim=3)  # Add this line
         super().__init__(dest, sources)
 
     def initialize(self, d_idx, d_m, d_rho, d_h, d_cohesion):
@@ -149,9 +151,13 @@ class DeformableObjectSim(Application):
         # Use EPECIntegrator for elastic dynamics
         # dt = time step
         integrator = EPECIntegrator(elastic=WCSPHStep())
-        kernel = CubicSpline(dim=3)
-        solver = Solver(dim=3, integrator=integrator, kernel=kernel,
-                tf=1.0, dt=1e-4, adaptive_timestep=True,
-                cfl=0.5, output_at_times=[1e-1, 1.0])
+        solver = Solver(dim=3, 
+                        integrator=integrator, 
+                        kernel=self.kernel,
+                        tf=1.0, 
+                        dt=1e-4, 
+                        adaptive_timestep=True,
+                        cfl=0.5, 
+                        output_at_times=[1e-1, 1.0])
         
         return solver
