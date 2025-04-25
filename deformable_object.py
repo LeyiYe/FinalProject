@@ -93,7 +93,7 @@ class DeformableObjectSim(Application):
             s12=np.zeros_like(x),
             s22=np.zeros_like(x)
         )
-        return particles
+        return [particles]
 
 
     def create_equations(self):
