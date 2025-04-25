@@ -73,7 +73,6 @@ class PandaSim(object):
         index=index+1
     self.t = 0.
 
-    self._setup_robot()
     self._create_sph_visualization()
 
   def _position_sph_object(self):
