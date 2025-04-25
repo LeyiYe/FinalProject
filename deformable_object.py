@@ -111,8 +111,7 @@ class DeformableObjectSim(Application):
                             dest='object', sources=['object']
                         ),
                         MomentumEquationWithStress(
-                            dest='object', sources=['object'],
-                            alpha=0.2, beta=0.2  # Higher viscosity
+                            dest='object', sources=['object']  # Higher viscosity
                         )
                     ], real =True
                 ),
@@ -128,10 +127,12 @@ class DeformableObjectSim(Application):
                 
                 #Artificial stress and viscosity
                 MonaghanArtificialStress(dest='object', 
-                                        sources=['object'],eps=1.0),
+                                        sources=['object'],
+                                        eps=1.0),
                 XSPHCorrection(
-                    dest='object', sources=['object'],
-                    alpha=0.5  # Smother motion
+                    dest='object', 
+                    sources=['object'],
+                    eps=0.5  # Smother motion
                 )
                 ], real=True)
             ]
