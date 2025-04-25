@@ -47,6 +47,7 @@ class DeformableObjectSim(Application):
         self.particle_radius = particle_radius
         self.object_size = 0.05  # 5cm cube
         self.kernel = CubicSpline(dim=3)  # Add this line
+        self.particle_array = None
         super().__init__()
         
 
@@ -70,7 +71,7 @@ class DeformableObjectSim(Application):
         print(f"Created {len(x)} particles")
         
         # Create particle array with elastic dynamics properties
-        particles = get_particle_array_elastic_dynamics(
+        self.particle_array = get_particle_array_elastic_dynamics(
             constants={
                 'E': 1e5,       # Young's modulus (Pa)
                 'nu': 0.3,     # Poisson's ratio
@@ -93,8 +94,11 @@ class DeformableObjectSim(Application):
             s12=np.zeros_like(x),
             s22=np.zeros_like(x)
         )
-        return [particles]
+        return [self.particle_array]
 
+    def get_particles(self):
+        """Helper method to get the single particle array"""
+        return self.particle_array
 
     def create_equations(self):
         equations = [
