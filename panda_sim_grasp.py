@@ -2,6 +2,7 @@ import time
 import numpy as np
 import math
 from deformable_object import DeformableObjectSim
+from pysph.base.nnps import LinkedListNNPS
 
 useNullSpace = 1
 ikSolver = 0

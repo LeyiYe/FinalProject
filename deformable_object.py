@@ -5,6 +5,7 @@ from pysph.sph.integrator import EPECIntegrator, PECIntegrator
 from pysph.sph.integrator_step import WCSPHStep
 from pysph.sph.equation import Group
 from pysph.sph.equation import Equation
+from pysph.base.nnps import LinkedListNNPS
 
 from pysph.sph.wc.basic import TaitEOSHGCorrection
 
