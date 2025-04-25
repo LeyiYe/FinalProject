@@ -35,7 +35,10 @@ class PandaSim(object):
     # Position SPH object on platform
     self._position_sph_object()
     self.sph_solver = self.sph_app.create_solver()
-    self.sph_iterator = iter(self.sph_solver.solve())
+    #self.sph_iterator = iter(self.sph_solver.solve())
+    self.sph_solver.setup()
+    self.sph_time = 0.0
+    self.sph_dt = 1e-4
 
 
     
@@ -102,16 +105,18 @@ class PandaSim(object):
     radius=self.sph_app.particle_radius,
     rgbaColor=[1, 0, 0, 0.7]  # Slightly transparent
     )
-    
-    for i in range(len(self.sph_particles.x)):
+
+    particles = self.sph_solver.particles.arrays[0]
+
+    for i in range(len(particles.x)):
         # Create visual only - no physics
         visual = self.bullet_client.createMultiBody(
             baseMass=0,  # Massless
             baseVisualShapeIndex=particle_shape,
             basePosition=[
-                self.sph_particles.x[i],
-                self.sph_particles.y[i],
-                self.sph_particles.z[i]
+                particles.x[i],
+                particles.y[i],
+                particles.z[i]
             ],
             baseCollisionShapeIndex=-1  # No collision
         )
@@ -246,7 +251,9 @@ class PandaSim(object):
 
     self.sph_solver.compute(self.sph_time, self.sph_dt)
     self.sph_time += self.sph_dt
-    self.sph_solver.particles.update()
+    
+    for array in self.sph_solver.particles.arrays:
+        array.update()
 
     self._update_sph_visualization()
     # 设置抓取器张开宽度
