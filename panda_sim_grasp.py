@@ -95,22 +95,37 @@ class PandaSim(object):
   def _create_sph_visualization(self):
       """Create visual representation of SPH particles in PyBullet"""
       self.sph_visuals = []
-      particle_shape = self.bullet_client.createVisualShape(
-      self.bullet_client.GEOM_SPHERE,
-      radius=self.sph_app.particle_radius,
-      rgbaColor=[1, 0, 0, 1])
+      particle_radius = self.sph_app.particle_radius
         
       for i in range(len(self.sph_particles.x)):
-        visual = self.bullet_client.createMultiBody(
-              baseMass=0,
-                baseVisualShapeIndex=particle_shape,
+        collision_shape = self.bullet_client.createCollisionShape(
+                self.bullet_client.GEOM_SPHERE,
+                radius=particle_radius
+            )
+        visual_shape = self.bullet_client.createVisualShape(
+                self.bullet_client.GEOM_SPHERE,
+                radius=particle_radius,
+                rgbaColor=[1, 0, 0, 1]  # Red color
+            )
+        particle_mass = self.sph_particles.particle_mass[i]
+        body = self.bullet_client.createMultiBody(
+                baseMass=particle_mass,
+                baseCollisionShapeIndex=collision_shape,
+                baseVisualShapeIndex=visual_shape,
                 basePosition=[
                     self.sph_particles.x[i],
-                    self.sph_particles.y[i], 
+                    self.sph_particles.y[i],
                     self.sph_particles.z[i]
-                ]
+                ],
+                baseOrientation=[0, 0, 0, 1]
             )
-      self.sph_visuals.append(visual)
+        # set pysics properties
+        self.bullet_client.changeDynamics(body, 
+                                          -1, 
+                                          lateralFriction = 0.5, 
+                                          restitution = 0.3, 
+                                          linearDamping=0.1)
+      self.sph_visuals.append(body)
 
   def _update_sph_visualization(self):
     """Update particle positions in visualization"""
