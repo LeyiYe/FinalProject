@@ -36,7 +36,11 @@ class PandaSim(object):
     self._position_sph_object()
     self.sph_solver = self.sph_app.create_solver()
     #self.sph_iterator = iter(self.sph_solver.solve())
-    self.sph_solver.setup()
+    self.sph_solver.setup(
+        self.sph_particles,
+        self.sph_app.create_equations(),
+        kernel=self.sph_app.kernel,
+    )
     self.sph_time = 0.0
     self.sph_dt = 1e-4
 
@@ -251,7 +255,7 @@ class PandaSim(object):
 
     self.sph_solver.compute(self.sph_time, self.sph_dt)
     self.sph_time += self.sph_dt
-    
+
     for array in self.sph_solver.particles.arrays:
         array.update()
 
