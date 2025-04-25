@@ -25,8 +25,6 @@ class PandaSim(object):
     
     #print("offset=",offset)
     flags = self.bullet_client.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
-    self.legos=[]
-    
     self.bullet_client.loadURDF("tray/traybox.urdf", [0+offset[0], 0+offset[1], -0.6+offset[2]], [-0.5, -0.5, -0.5, 0.5], flags=flags)
     
             
@@ -238,8 +236,12 @@ class PandaSim(object):
       pos = [self.offset[0]+0.2 * math.sin(1.5 * t), self.offset[1]+self.gripper_height, self.offset[2]+-0.6 + 0.1 * math.cos(1.5 * t)] # 圆形位置
       if self.state == 3 or self.state== 4:
         # 获取红色积木的位置和方向
-        pos, o = self.bullet_client.getBasePositionAndOrientation(self.legos[0])    #sphereId self.legos[0]
-        pos = [pos[0], self.gripper_height, pos[2]] # 机械手位置
+        sph_center = [
+                np.mean(self.sph_particles.x),
+                np.mean(self.sph_particles.y),
+                np.max(self.sph_particles.z)  # Use max Z for top of object
+            ]
+        pos = [sph_center[0], self.gripper_height, sph_center[2]]
         self.prev_pos = pos
       if self.state == 7:
         pos = self.prev_pos
