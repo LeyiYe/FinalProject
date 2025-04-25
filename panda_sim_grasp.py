@@ -107,7 +107,7 @@ class PandaSim(object):
                 radius=particle_radius,
                 rgbaColor=[1, 0, 0, 1]  # Red color
             )
-        particle_mass = self.sph_particles.particle_mass[i]
+        particle_mass = self.sph_particles.m[i]
         body = self.bullet_client.createMultiBody(
                 baseMass=particle_mass,
                 baseCollisionShapeIndex=collision_shape,
