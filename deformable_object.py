@@ -168,7 +168,7 @@ class DeformableObjectSim(Application):
                         output_at_times=[1e-1, 1.0])
         
             # Setup NNPS (neighbor search) properly
-        integrator.setup_nnps(
+        solver.setup_nnps(
             domain_manager=None, 
             cache=True, 
             max_number_of_particles=len(self.particle_array.x)
