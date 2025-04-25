@@ -31,6 +31,7 @@ class PandaSim(object):
     # Initialize SPH deformable object
     self.sph_app = DeformableObjectSim(particle_radius=0.005)  # Smaller particles
     self.sph_solver = self.sph_app.create_solver()
+    self.sph_iterator = iter(self.sph_solver.solve())
     self.sph_particles = self.sph_app.create_particles()
     
     # Position SPH object on platform
@@ -148,14 +149,11 @@ class PandaSim(object):
 
   def _update_sph_visualization(self):
     """Update particle positions in visualization"""
+    particles = self.sph_solver.particles.array[0]
     for i, visual in enumerate(self.sph_visuals):
       self.bullet_client.resetBasePositionAndOrientation(
                 visual,
-                posObj=[
-                    self.sph_particles.x[i],
-                    self.sph_particles.y[i],
-                    self.sph_particles.z[i]
-                ],
+                posObj=[particles.x[i], particles.y[i], particles.z[i]],
                 ornObj=[0, 0, 0, 1]
             )
 
@@ -239,8 +237,11 @@ class PandaSim(object):
 
 
   def step(self, graspWidth):
-    for _ in range(10):
-      self.sph_solver.step()
+    try:
+        next(self.sph_iterator)
+    except StopIteration:
+        print("SPH simulation completed")
+        self.sph_iterator = iter(self.sph_solver.solve())
 
     self._update_sph_visualization()
     # 设置抓取器张开宽度
