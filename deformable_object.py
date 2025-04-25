@@ -23,8 +23,6 @@ import numpy as np
 class CohesiveForce(Equation):
     def __init__(self, dest, sources, k=1e6):
         self.k = k  # Cohesion stiffness
-        self.object_size = 0.05  # 5cm cube
-        self.kernel = CubicSpline(dim=3)  # Add this line
         super().__init__(dest, sources)
 
     def initialize(self, d_idx, d_m, d_rho, d_h, d_cohesion):
@@ -48,6 +46,7 @@ class DeformableObjectSim(Application):
     def __init__(self, particle_radius=0.01):
         self.particle_radius = particle_radius
         self.object_size = 0.05  # 5cm cube
+        self.kernel = CubicSpline(dim=3)  # Add this line
         super().__init__()
         
 
