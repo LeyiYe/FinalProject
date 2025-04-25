@@ -200,6 +200,7 @@ class PandaSim(object):
       """Handle interaction between gripper and SPH object"""
         # Get gripper position and velocity
       gripper_pos = self.get_gripper_center()
+      gripper_force = np.zeros(3)
         
         # Find nearby particles
       for i in range(len(self.sph_particles.x)):
@@ -212,7 +213,6 @@ class PandaSim(object):
             # Simple spring coupling
         if dist < 0.02:  # Interaction radius
           stiffness = 1e4  # N/m
-          damping = 10     # N/(m/s)
                 
                 # Calculate force
           displacement = np.array([
@@ -225,19 +225,24 @@ class PandaSim(object):
           self.sph_particles.u[i] += stiffness * displacement[0] * self.sph_solver.dt
           self.sph_particles.v[i] += stiffness * displacement[1] * self.sph_solver.dt
           self.sph_particles.w[i] += stiffness * displacement[2] * self.sph_solver.dt
-                
+          # Accumulate reaction force
+          gripper_force += stiffness * displacement * self.sph_particles.m[i]     
                 # Apply reaction force to gripper
-          reaction_force = stiffness * displacement * self.sph_particles.m[i]
-          self.bullet_client.applyExternalForce(
+          
+        self.bullet_client.applyExternalForce(
                 self.panda,
                 -1,  # Apply to base
-                forceObj=reaction_force,
+                forceObj=gripper_force,
                 posObj=gripper_pos,
                 flags=self.bullet_client.WORLD_FRAME
                 )
 
 
   def step(self, graspWidth):
+    for _ in range(10):
+      self.sph_solver.step()
+
+    self._update_sph_visualization()
     # 设置抓取器张开宽度
     if self.state==6:
       self.finger_target = 0.01
