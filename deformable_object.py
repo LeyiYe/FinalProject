@@ -155,7 +155,7 @@ class DeformableObjectSim(Application):
 
         # Use EPECIntegrator for elastic dynamics
         # dt = time step
-        integrator = EPECIntegrator(elastic=WCSPHStep())
+        integrator = EPECIntegrator(object=WCSPHStep())
         solver = Solver(dim=3, 
                         integrator=integrator, 
                         kernel=self.kernel,
