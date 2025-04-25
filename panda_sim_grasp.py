@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import math
+from deformable_object import DeformableObjectSim
 
 useNullSpace = 1
 ikSolver = 0
@@ -27,14 +28,17 @@ class PandaSim(object):
     self.legos=[]
     
     self.bullet_client.loadURDF("tray/traybox.urdf", [0+offset[0], 0+offset[1], -0.6+offset[2]], [-0.5, -0.5, -0.5, 0.5], flags=flags)
-    self.legos.append(self.bullet_client.loadURDF("lego/lego.urdf",np.array([0.1, 0.3, -0.5])+self.offset, flags=flags))
-    self.bullet_client.changeVisualShape(self.legos[0],-1,rgbaColor=[1,0,0,1])
-    self.legos.append(self.bullet_client.loadURDF("lego/lego.urdf",np.array([-0.1, 0.3, -0.5])+self.offset, flags=flags))
-    self.legos.append(self.bullet_client.loadURDF("lego/lego.urdf",np.array([0.1, 0.3, -0.7])+self.offset, flags=flags))
-    self.sphereId = self.bullet_client.loadURDF("sphere_small.urdf",np.array( [0, 0.3, -0.6])+self.offset, flags=flags)
-    self.bullet_client.loadURDF("sphere_small.urdf",np.array( [0, 0.3, -0.5])+self.offset, flags=flags)
-    # self.bullet_client.loadURDF("sphere_small.urdf",np.array( [0, 0.3, -0.7])+self.offset, flags=flags)
-    # self.cubeId = self.bullet_client.loadURDF("E:/research/dataset/grasp/EGAD/test_1/cube1.urdf",np.array( [0, 0.1, -0.7])+self.offset, flags=flags)
+    
+            
+    # Initialize SPH deformable object
+    self.sph_app = DeformableObjectSim(particle_radius=0.005)  # Smaller particles
+    self.sph_solver = self.sph_app.create_solver()
+    self.sph_particles = self.sph_app.create_particles()
+    
+    # Position SPH object on platform
+    self._position_sph_object()
+
+    
     orn=[-0.707107, 0.0, 0.0, 0.707107]#p.getQuaternionFromEuler([-math.pi/2,math.pi/2,0])
     eul = self.bullet_client.getEulerFromQuaternion([-0.5, -0.5, -0.5, 0.5])
     self.panda = self.bullet_client.loadURDF("franka_panda/panda.urdf", np.array([0,0,0])+self.offset, orn, useFixedBase=True, flags=flags)
@@ -69,10 +73,74 @@ class PandaSim(object):
         index=index+1
     self.t = 0.
 
+    self._setup_robot()
+    self._create_sph_visualization()
+
+  def _position_sph_object(self):
+      """Center SPH object on platform"""
+      platform_center = np.array([0, 0.3, -0.55])  # Above platform center
+        
+        # Calculate particle bounds
+      min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
+      min_y, max_y = np.min(self.sph_particles.y), np.max(self.sph_particles.y)
+      min_z = np.min(self.sph_particles.z)
+        
+        # Calculate required offsets
+      x_offset = platform_center[0] - (min_x + max_x)/2
+      y_offset = platform_center[1] - (min_y + max_y)/2
+      z_offset = platform_center[2] - min_z  # Align bottom with platform
+        
+        # Apply offsets
+      self.sph_particles.x += x_offset
+      self.sph_particles.y += y_offset
+      self.sph_particles.z += z_offset
+
+  def _create_sph_visualization(self):
+      """Create visual representation of SPH particles in PyBullet"""
+      self.sph_visuals = []
+      particle_shape = self.bullet_client.createVisualShape(
+      self.bullet_client.GEOM_SPHERE,
+      radius=self.sph_app.particle_radius,
+      rgbaColor=[1, 0, 0, 1])
+        
+      for i in range(len(self.sph_particles.x)):
+        visual = self.bullet_client.createMultiBody(
+              baseMass=0,
+                baseVisualShapeIndex=particle_shape,
+                basePosition=[
+                    self.sph_particles.x[i],
+                    self.sph_particles.y[i], 
+                    self.sph_particles.z[i]
+                ]
+            )
+      self.sph_visuals.append(visual)
+
+  def _update_sph_visualization(self):
+    """Update particle positions in visualization"""
+    for i, visual in enumerate(self.sph_visuals):
+      self.bullet_client.resetBasePositionAndOrientation(
+                visual,
+                posObj=[
+                    self.sph_particles.x[i],
+                    self.sph_particles.y[i],
+                    self.sph_particles.z[i]
+                ],
+                ornObj=[0, 0, 0, 1]
+            )
+
   def reset(self):
     pass
 
   def update_state(self):
+    # Update SPH simulation
+    self.sph_solver.step()
+        
+    # Handle coupling between Panda and SPH object
+    self._handle_sph_coupling()
+        
+    # Update visualization
+    self._update_sph_visualization()
+
     keys = self.bullet_client.getKeyboardEvents()
     if len(keys)>0:
       for k,v in keys.items():
@@ -95,6 +163,49 @@ class PandaSim(object):
                 self.state = 7
         if v&self.bullet_client.KEY_WAS_RELEASED:
             self.state = 0
+
+
+  def _handle_sph_coupling(self):
+      """Handle interaction between gripper and SPH object"""
+        # Get gripper position and velocity
+      gripper_pos = self.get_gripper_center()
+        
+        # Find nearby particles
+      for i in range(len(self.sph_particles.x)):
+        dist = np.linalg.norm([
+                self.sph_particles.x[i] - gripper_pos[0],
+                self.sph_particles.y[i] - gripper_pos[1],
+                self.sph_particles.z[i] - gripper_pos[2]
+            ])
+            
+            # Simple spring coupling
+        if dist < 0.02:  # Interaction radius
+          stiffness = 1e4  # N/m
+          damping = 10     # N/(m/s)
+                
+                # Calculate force
+          displacement = np.array([
+                    gripper_pos[0] - self.sph_particles.x[i],
+                    gripper_pos[1] - self.sph_particles.y[i],
+                    gripper_pos[2] - self.sph_particles.z[i]
+                ])
+                
+                # Apply force to particle
+          self.sph_particles.u[i] += stiffness * displacement[0] * self.sph_solver.dt
+          self.sph_particles.v[i] += stiffness * displacement[1] * self.sph_solver.dt
+          self.sph_particles.w[i] += stiffness * displacement[2] * self.sph_solver.dt
+                
+                # Apply reaction force to gripper
+          reaction_force = stiffness * displacement * self.sph_particles.m[i]
+          self.bullet_client.applyExternalForce(
+                self.panda,
+                -1,  # Apply to base
+                forceObj=reaction_force,
+                posObj=gripper_pos,
+                flags=self.bullet_client.WORLD_FRAME
+                )
+
+
   def step(self, graspWidth):
     # 设置抓取器张开宽度
     if self.state==6:
