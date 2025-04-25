@@ -30,16 +30,19 @@ class PandaSim(object):
             
     # Initialize SPH deformable object
     self.sph_app = DeformableObjectSim(particle_radius=0.005)  # Smaller particles
-    self.sph_particles = self.sph_app.create_particles()
+    particle_list = self.sph_app.create_particles()
     
+    self.sph_particles_list = particle_list
+    self.sph_particles = self.sph_app.get_particles()
+
     # Position SPH object on platform
     self._position_sph_object()
     self.sph_solver = self.sph_app.create_solver()
     #self.sph_iterator = iter(self.sph_solver.solve())
     self.sph_solver.setup(
-        self.sph_particles,
+        self.sph_particles_list,
         self.sph_app.create_equations(),
-        self.sph_app.create_solver(),
+        self.sph_app.kernel,
     )
     self.sph_time = 0.0
     self.sph_dt = 1e-4
