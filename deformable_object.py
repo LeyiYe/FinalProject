@@ -156,6 +156,7 @@ class DeformableObjectSim(Application):
         # Use EPECIntegrator for elastic dynamics
         # dt = time step
         integrator = EPECIntegrator(object=WCSPHStep())
+
         solver = Solver(dim=3, 
                         integrator=integrator, 
                         kernel=self.kernel,
@@ -165,4 +166,12 @@ class DeformableObjectSim(Application):
                         cfl=0.5, 
                         output_at_times=[1e-1, 1.0])
         
+            # Setup NNPS (neighbor search) properly
+        solver.setup_nnps(
+            domain_manager=None, 
+            cache=True, 
+            max_number_of_particles=len(self.particle_array.x)
+        )
+
+
         return solver

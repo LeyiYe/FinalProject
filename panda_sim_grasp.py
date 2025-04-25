@@ -43,6 +43,7 @@ class PandaSim(object):
         self.sph_particles_list,
         self.sph_app.create_equations(),
         self.sph_app.kernel,
+        nnps=None,
     )
     self.sph_time = 0.0
     self.sph_dt = 1e-4
