@@ -5,7 +5,7 @@ import time
 from deformable_object import DeformableObjectSim
 from enum import Enum, auto
 from scipy.spatial import KDTree 
-from panda_fsm import PandaFSM
+from panda_fsm1 import PandaFSM
 
 class PandaController:
     def __init__(self, mode="pickup"):
@@ -37,7 +37,7 @@ class PandaController:
         self.joint_info = self._get_joint_info()
 
         # Open gripper fingers immediately after loading
-        self._open_gripper()
+        #self._open_gripper()
 
         self._configure_robot_visibility()
 

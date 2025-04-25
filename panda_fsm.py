@@ -22,6 +22,11 @@ class PandaFSM:
         self.grasp_stable_counter = 0
         self.gripper_pos = self.controller.get_gripper_positions()
 
+        self.open_position = 0.04  # Fully open position
+        self.closed_position = 0.00  # Fully closed position
+        self.grasp_force_threshold = 5.0  # Newtons
+        self.target_grasp_force = 15.0  # Newtons
+
         # State name mapping for display
         self.state_names = {
             PandaState.OPEN: "OPEN",
@@ -63,13 +68,28 @@ class PandaFSM:
     
 
     def _open_state(self):
+
+        for joint_name in ['panda_finger_joint1', 'panda_finger_joint2']:
+            if joint_name in self.controller.joint_info:
+                joint_idx = self.controller.joint_info[joint_name]['index']
+                p.setJointMotorControl2(
+                    self.controller.panda,
+                    joint_idx,
+                    p.POSITION_CONTROL,
+                    targetPosition=self.open_position,
+                    force=10,
+                    positionGain=0.1
+                )
         """Fully open gripper before approach"""
-        self.controller.set_gripper_velocity(0.2, 0.2)  # Open fast
+        #self.controller.set_gripper_velocity(0.2, 0.2)  # Open fast
         
         # Transition when fully open (joint positions > threshold)
-        if all(p >= 0.04 for p in self.gripper_pos):
-            print("Gripper fully open, approaching object")
+        if all(p >= self.open_position - 0.005 for p in self.gripper_pos):
+            print("Gripper fully open, transitioning to CLOSE")
             self.state = PandaState.CLOSE
+            # Reset gripper velocity for next state
+            self.controller.set_gripper_velocity(0, 0)
+
 
 
     def _close_state(self):
