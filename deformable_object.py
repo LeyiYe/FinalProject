@@ -4,6 +4,10 @@ from pysph.solver.application import Application
 from pysph.sph.integrator import EPECIntegrator, PECIntegrator
 from pysph.sph.integrator_step import WCSPHStep
 from pysph.sph.equation import Group
+from pysph.sph.equation import Equation
+
+from pysph.sph.wc.basic import TaitEOSHGCorrection
+
 from pysph.sph.basic_equations import (
     ContinuityEquation, XSPHCorrection
 )
@@ -15,6 +19,28 @@ from pysph.sph.solid_mech.basic import (
     MomentumEquationWithStress, MonaghanArtificialStress
 )
 import numpy as np
+
+class CohesiveForce(Equation):
+    def __init__(self, dest, sources, k=1e6):
+        self.k = k  # Cohesion stiffness
+        super().__init__(dest, sources)
+
+    def initialize(self, d_idx, d_m, d_rho, d_h, d_cohesion):
+        d_cohesion[d_idx] = 0.0
+
+    def loop(self, d_idx, s_idx, d_m, s_m, d_rho, s_rho, 
+             d_h, s_h, d_cohesion, s_cohesion, 
+             DWIJ, RIJ, XIJ):
+        # Cubic spline cohesion force
+        r = RIJ/d_h[d_idx]
+        if r < 1.0:
+            W = 1 - 1.5*r**2 + 0.75*r**3
+        elif r < 2.0:
+            W = 0.25*(2-r)**3
+        else:
+            W = 0.0
+            
+        d_cohesion[d_idx] += self.k * W * s_m[s_idx]/s_rho[s_idx]
 
 class DeformableObjectSim(Application):
     def __init__(self, particle_radius=0.01):
@@ -72,20 +98,44 @@ class DeformableObjectSim(Application):
     def create_equations(self):
         equations = [
             Group(equations=[
-                TaitEOS(
-                    dest='object', sources=None, 
-                    rho0=1000.0, c0=100.0, gamma=7.0  # Higher sound speed
+                #Stronger EOS for incompressible materials
+                TaitEOSHGCorrection(
+                    dest='object', sources=None,
+                    rho0=1000.0, c0=140.0, gamma=7.0  # Higher sound speed
                 ),
-                MomentumEquationWithStress(
-                    dest='object', sources=['object'],
-                    alpha=0.2, beta=0.2  # Higher viscosity
+
+                # Elastic stress formulation
+                Group(
+                    equations=[
+                        HookesDeviatoricStressRate(
+                            dest='object', sources=['object'],
+                            alpha=0.2, beta=0.2  # Higher viscosity
+                        ),
+                        MomentumEquationWithStress(
+                            dest='object', sources=['object'],
+                            alpha=0.2, beta=0.2  # Higher viscosity
+                        )
+                    ], real =True
                 ),
-                MonaghanArtificialStress(
+
+                # Enhanced cohesion
+                Group(
+                    equations=[
+                        CohesiveForce(
+                            dest='object', sources=['object'],
+                            k=1e6  # Higher cohesion stiffness
+                        )], real=True
+                ),
+                
+                #Artificial stress and viscosity
+                MonaghanArtificialStress(dest='object', 
+                                        sources=['object'],eps=1.0),
+                XSPHCorrection(
                     dest='object', sources=['object'],
-                    eps=0.5  # Increased artificial stress
+                    alpha=0.5  # Smother motion
                 )
-            ], real=True)
-        ]
+                ], real=True)
+            ]
         return equations
 
 
