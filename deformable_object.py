@@ -108,8 +108,7 @@ class DeformableObjectSim(Application):
                 Group(
                     equations=[
                         HookesDeviatoricStressRate(
-                            dest='object', sources=['object'],
-                            alpha=0.2, beta=0.2  # Higher viscosity
+                            dest='object', sources=['object']
                         ),
                         MomentumEquationWithStress(
                             dest='object', sources=['object'],
