@@ -93,7 +93,7 @@ class DeformableObjectSim(Application):
             s11=np.zeros_like(x),
             s12=np.zeros_like(x),
             s22=np.zeros_like(x),
-            cohension=np.zeros_like(x)
+            cohesion=np.zeros_like(x)
         )
 
         return [self.particle_array]
