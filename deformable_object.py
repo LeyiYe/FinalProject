@@ -48,7 +48,7 @@ class DeformableObjectSim(Application):
         self.nnps = None
         self.integrator = None
         self.dt = 1e-4
-        self.t = 0.0
+        self.time = 0.0
         super().__init__()
         
 
