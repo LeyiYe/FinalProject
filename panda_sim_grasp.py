@@ -115,7 +115,7 @@ class PandaSim(object):
 
     particles = self.sph_solver.particles
 
-    for i in range(len(particles.x)):
+    for i in range(len(particles)):
         # Create visual only - no physics
         visual = self.bullet_client.createMultiBody(
             baseMass=0,  # Massless
