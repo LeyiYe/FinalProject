@@ -46,6 +46,7 @@ class DeformableObjectSim(Application):
         self.kernel = CubicSpline(dim=3)  # Add this line
         self.particle_array = None
         self.sph_substeps = 5
+        self.solver = None
         super().__init__()
         
 
@@ -81,7 +82,7 @@ class DeformableObjectSim(Application):
             v=np.zeros_like(x),
             w=np.zeros_like(x),
             rho=np.ones_like(x)*density,
-            m=np.ones_like(x)*(dx**3)*particle_mass,
+            m=np.ones_like(x)*particle_mass,
             h=np.ones_like(x)*dx*1.2,
             p=np.zeros_like(x),
             # Initialize stress tensor components to zero
@@ -156,7 +157,7 @@ class DeformableObjectSim(Application):
 
         integrator = EPECIntegrator(object=SolidMechStep())
 
-        solver = Solver(
+        self.solver = Solver(
             dim=3, 
             integrator=integrator, 
             kernel=self.kernel,
@@ -165,7 +166,7 @@ class DeformableObjectSim(Application):
             adaptive_timestep=True,  # Enable adaptive time stepping
             cfl=0.1  # Courant-Friedrichs-Lewy condition
         )
-        solver.pm=None
+        self.solver.pm=None
 
         particles = [self.particle_array]
         equations = self.create_equations()
@@ -184,14 +185,14 @@ class DeformableObjectSim(Application):
         )
 
 
-        solver.setup(
+        self.solver.setup(
             particles=particles,
             equations=equations,
             kernel=self.kernel,
             nnps=nnps
         )
 
-        solver.acceleration_eval = AccelerationEval(
+        self.solver.acceleration_eval = AccelerationEval(
             particle_arrays=particles,
             equations=equations,
             kernel=self.kernel,
@@ -200,11 +201,11 @@ class DeformableObjectSim(Application):
         )
 
         # Now the acceleration_eval should be properly initialized
-        if solver.acceleration_eval is None:
+        if self.solver.acceleration_eval is None:
             raise RuntimeError("Failed to initialize acceleration evaluator")
 
-        print(f"Using {solver.acceleration_eval.backend} backend for acceleration")
-        return solver
+        print(f"Using {self.solver.acceleration_eval.backend} backend for acceleration")
+        return self.solver
     
 
     def manual_step(self):

@@ -210,7 +210,7 @@ class PandaSim(object):
     def step(self, graspWidth):
         # Update SPH simulation
         for _ in range(self.sph_app.sph_substeps):
-            self.sph_app.manual_step()
+            self.sph_solver.manual_step()
 
         for array in self.sph_solver.particles.arrays:
             array.update()
