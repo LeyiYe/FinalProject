@@ -164,7 +164,7 @@ class DeformableObjectSim(Application):
             integrator=self.integrator, 
             kernel=self.kernel,
             dt=self.dt,  # Initial time step
-            tf=1.0,  # Final time
+            tf=100000,  # Final time
             adaptive_timestep=True,  # Enable adaptive time stepping
             cfl=0.1  # Courant-Friedrichs-Lewy condition
         )
@@ -208,7 +208,9 @@ class DeformableObjectSim(Application):
         self.nnps.update()
         
         # Perform integration
-        self.solver.step(self.dt)
+        # self.solver.step(self.dt)
+
+
         self.time += self.dt
         
         # Return current positions for PyBullet
