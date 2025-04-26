@@ -333,7 +333,7 @@ class PandaSimAuto(PandaSim):
         PandaSim.__init__(self, bullet_client, offset)
         self.state_t = 0
         self.cur_state = 0
-        self.states=[0, 3, 4, 6, 7]
+        self.states=[3, 3, 4, 6, 7]
         self.state_durations=[2, 3, 2, 3, 5]
         self.reached_target = False
         self.target_pos = None
