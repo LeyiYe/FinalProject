@@ -154,6 +154,9 @@ class DeformableObjectSim(Application):
     def create_solver(self):
         # Use EPECIntegrator for elastic dynamics
         # dt = time step
+        from pysph.base.nnps import LinkedListNNPS
+        from pysph.sph.acceleration_eval import AccelerationEval
+
         integrator = EPECIntegrator(object=SolidMechStep())
 
         solver = Solver(dim=3, 
@@ -168,10 +171,24 @@ class DeformableObjectSim(Application):
         particles = self.particles
         equations = self.create_equations()
 
+        nnps = LinkedListNNPS(
+            dim=3, 
+            particles=particles, 
+            radius_scale=self.kernel.radius_scale,
+            cache = True,
+            domain_manager=None
+        )
+
+        # accel_eval = AccelerationEval(
+        #     particles_arrays=particles,
+        #     equations=equations,
+        #     kernel=self.kernel,
+        # )
         solver.setup(
             particles=particles,
             equations=equations,
             kernel=self.kernel,
+            nnps=nnps
         )
 
         # nnps = LinkedListNNPS(
