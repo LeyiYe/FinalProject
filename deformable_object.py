@@ -5,19 +5,14 @@ from pysph.sph.integrator import EPECIntegrator, PECIntegrator
 from pysph.sph.integrator_step import WCSPHStep, SolidMechStep
 from pysph.sph.equation import Group
 from pysph.sph.equation import Equation
-
 from pysph.sph.wc.basic import TaitEOSHGCorrection
-
-from pysph.sph.basic_equations import (
-    ContinuityEquation, XSPHCorrection
-)
-from pysph.sph.wc.basic import (
-    TaitEOS, MomentumEquation
-)
+from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
+from pysph.sph.wc.basic import TaitEOS, MomentumEquation
 from pysph.sph.solid_mech.basic import (
-    HookesDeviatoricStressRate,get_particle_array_elastic_dynamics,
+    HookesDeviatoricStressRate, get_particle_array_elastic_dynamics,
     MomentumEquationWithStress, MonaghanArtificialStress
 )
+from pysph.sph.acceleration_eval import AccelerationEval  # Changed from CUDAAccelerationEval
 import numpy as np
 
 class CohesiveForce(Equation):
@@ -57,8 +52,8 @@ class DeformableObjectSim(Application):
         
 
     def create_particles(self):
-        dx = 0.01  # Particle spacing (1mm)
-        object_size = 0.05  # 5cm cube
+        dx =self.particle_radius  # Particle spacing (1mm)
+        object_size = self.object_size  # 5cm cube
     
     # Create smaller grid
         x, y, z = np.mgrid[
@@ -163,14 +158,15 @@ class DeformableObjectSim(Application):
 
         integrator = EPECIntegrator(object=SolidMechStep())
 
-        solver = Solver(dim=3, 
-                        integrator=integrator, 
-                        kernel=self.kernel,
-                        dt=1e-4,  # Initial time step
-                        tf=1.0,  # Final time
-                        adaptive_timestep=True,  # Enable adaptive time stepping
-                        cfl=0.1  # Courant-Friedrichs-Lewy condition
-                        )
+        solver = Solver(
+            dim=3, 
+            integrator=integrator, 
+            kernel=self.kernel,
+            dt=1e-4,  # Initial time step
+            tf=1.0,  # Final time
+            adaptive_timestep=True,  # Enable adaptive time stepping
+            cfl=0.1  # Courant-Friedrichs-Lewy condition
+        )
         solver.pm = DummyParallelManager
         
         particles = [self.particle_array]
@@ -180,26 +176,6 @@ class DeformableObjectSim(Application):
         print(f"Particle y range: {min(particles[0].y)} to {max(particles[0].y)}")
         print(f"Particle z range: {min(particles[0].z)} to {max(particles[0].z)}")
 
-        # # Calculate proper domain bounds based on actual particle positions
-        # x_min, x_max = min(self.particle_array.x), max(self.particle_array.x)
-        # y_min, y_max = min(self.particle_array.y), max(self.particle_array.y)
-        # z_min, z_max = min(self.particle_array.z), max(self.particle_array.z)
-        
-        # # Add some padding around the particles
-        # padding = 0.05  # 5cm padding
-        # domain_min = (x_min - padding, y_min - padding, z_min - padding)
-        # domain_max = (x_max + padding, y_max + padding, z_max + padding)
-
-        # # Create domain manager
-        # domain = DomainManager(
-        #     xmin=domain_min[0], xmax=domain_max[0],
-        #     ymin=domain_min[1], ymax=domain_max[1],
-        #     zmin=domain_min[2], zmax=domain_max[2],
-        #     periodic_in_x=False,
-        #     periodic_in_y=False,
-        #     periodic_in_z=False
-        # )
-
         nnps = LinkedListNNPS(
             dim=3, 
             particles=particles, 
@@ -208,10 +184,24 @@ class DeformableObjectSim(Application):
             #domain = domain
         )
 
+        # Create acceleration evaluator with CUDA backend
+        accel_eval = AccelerationEval(
+            particle_arrays=particles,
+            equations=equations,
+            kernel=self.kernel,
+            backend='cuda'  # Force CUDA backend
+        )
+
         solver.setup(
             particles=particles,
             equations=equations,
             kernel=self.kernel,
             nnps=nnps
         )
+
+        solver.acceleration_eval = accel_eval
+        solver.acceleration_eval.set_nnps(nnps)
+        solver.acceleration_eval.update_particle_arrays(particles)
+
+        print(f"Using {solver.acceleration_eval.backend} backend for acceleration")
         return solver
