@@ -140,7 +140,7 @@ class PandaSim(object):
 
     def update_state(self):
         # Update SPH simulation
-        self.sph_solver.step(self.sph_dt)
+        # self.sph_solver.step(self.sph_dt)
             
         # Handle coupling between Panda and SPH object
         self._handle_sph_coupling()
@@ -210,7 +210,7 @@ class PandaSim(object):
     def step(self, graspWidth):
         # Update SPH simulation
         for _ in range(self.sph_app.sph_substeps):
-            self.sph_particles.manual_step()
+            self.sph_app.manual_step()
 
         for array in self.sph_solver.particles.arrays:
             array.update()
