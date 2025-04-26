@@ -164,7 +164,7 @@ class DeformableObjectSim(Application):
             integrator=self.integrator, 
             kernel=self.kernel,
             dt=self.dt,  # Initial time step
-            tf=100000,  # Final time
+            tf=10000,  # Final time
             adaptive_timestep=True,  # Enable adaptive time stepping
             cfl=0.1  # Courant-Friedrichs-Lewy condition
         )
