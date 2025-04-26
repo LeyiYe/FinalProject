@@ -159,12 +159,9 @@ class DeformableObjectSim(Application):
         solver = Solver(dim=3, 
                         integrator=integrator, 
                         kernel=self.kernel,
+                        dt=1e-4,  # Initial time step
+                        tf=1.0,  # Final time
                         )
-        dt = 1e-4
-        tf=1.0
-        solver.set_time_step(dt)
-        solver.set_final_time(tf)
-        solver.set_print_freq(100)
         
         # particles = self.create_particles()
         # equations = self.create_equations()
