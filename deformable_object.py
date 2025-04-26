@@ -169,31 +169,37 @@ class DeformableObjectSim(Application):
                         cfl=0.5, 
                         output_at_times=[1e-1, 1.0])
         
-        particles = self.create_particles()
-        equations = self.create_equations()
-
-        nnps = LinkedListNNPS(
-            dim=3, 
-            particles=particles, 
-            radius_scale=self.kernel.radius_scale,
-            cache = True
-        )
-
-        solver.particles = particles
-
-        solver.acceleration_evals = make_acceleration_evals(
-            particles, equations, solver.kernel, 'serial'
-        )
-
-        sph_compiler = SPHCompiler(
-            solver.acceleration_evals,solver.kernel)
+        self.set_solver(solver = solver,
+                        equations = self.create_equations(),
+                        particle_finder = None,
+                        cache_nnps=True
+                        ) 
         
-        sph_compiler.compile()
+        # particles = self.create_particles()
+        # equations = self.create_equations()
 
-        solver.nnps = nnps
+        # nnps = LinkedListNNPS(
+        #     dim=3, 
+        #     particles=particles, 
+        #     radius_scale=self.kernel.radius_scale,
+        #     cache = True
+        # )
 
-        for ae in solver.acceleration_evals:
-            ae.set_nnps(nnps)
-        solver.integrator.set_nnps(nnps)
+        # solver.particles = particles
+
+        # solver.acceleration_evals = make_acceleration_evals(
+        #     particles, equations, solver.kernel, 'serial'
+        # )
+
+        # sph_compiler = SPHCompiler(
+        #     solver.acceleration_evals,solver.kernel)
+        
+        # sph_compiler.compile()
+
+        # solver.nnps = nnps
+
+        # for ae in solver.acceleration_evals:
+        #     ae.set_nnps(nnps)
+        # solver.integrator.set_nnps(nnps)
 
         return solver
