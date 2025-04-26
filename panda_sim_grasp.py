@@ -39,11 +39,6 @@ class PandaSim(object):
     # Position SPH object on platform
     self._position_sph_object()
     self.sph_solver = self.sph_app.create_solver()
-    self.sph_solver.setup(
-        particles = self.sph_particles_list,
-        equations = self.sph_app.create_equations(),
-        kernel = self.sph_app.kernel,
-    )
 
     # # self.sph_iterator = iter(self.sph_solver.solve())
     # self.sph_solver.setup(

@@ -161,10 +161,18 @@ class DeformableObjectSim(Application):
                         kernel=self.kernel,
                         dt=1e-4,  # Initial time step
                         tf=1.0,  # Final time
+                        adaptive_timestep=True,  # Enable adaptive time stepping
+                        cfl=0.1  # Courant-Friedrichs-Lewy condition
                         )
         
-        # particles = self.create_particles()
-        # equations = self.create_equations()
+        particles = self.particles
+        equations = self.create_equations()
+
+        solver.setup(
+            particles=particles,
+            equations=equations,
+            kernel=self.kernel,
+        )
 
         # nnps = LinkedListNNPS(
         #     dim=3, 
