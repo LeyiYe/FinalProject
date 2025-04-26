@@ -345,7 +345,7 @@ class PandaSimAuto(PandaSim):
 
         self.target_pos = self._get_target_pos_for_state(self.states[self.cur_state])
         
-        dist = np.linalg.norm(np.array(gripper_pos) - np.array(target_pos))
+        dist = np.linalg.norm(np.array(current_pos) - np.array(self.target_pos))
         self.reached_target = dist < 0.01  # 1cm threshold
 
         if self.state_t > self.state_durations[self.cur_state]:
