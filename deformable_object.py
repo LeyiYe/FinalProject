@@ -192,7 +192,7 @@ class DeformableObjectSim(Application):
         )
 
         solver.acceleration_eval = AccelerationEval(
-            particles=particles,
+            particle_arrays=particles,
             equations=equations,
             kernel=self.kernel,
             mode ='mpi',
