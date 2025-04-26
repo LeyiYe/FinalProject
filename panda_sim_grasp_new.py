@@ -230,25 +230,6 @@ class PandaSim(object):
             if self._reached_position(target_pos, threshold=0.02):
                 self.state = 8  # Done
                 
-        # Handle keyboard input for manual control
-        keys = self.bullet_client.getKeyboardEvents()
-        if len(keys) > 0:
-            for k, v in keys.items():
-                if v & self.bullet_client.KEY_WAS_TRIGGERED:
-                    if k == ord('0'):
-                        self.state = 0
-                    elif k == ord('1'):
-                        self.state = 1
-                    elif k == ord('3'):
-                        self.state = 3
-                    elif k == ord('4'):
-                        self.state = 4
-                    elif k == ord('5'):
-                        self.state = 5
-                    elif k == ord('6'):
-                        self.state = 6
-                    elif k == ord('7'):
-                        self.state = 7
 
     def _get_pre_grasp_position(self):
         """Get position 5cm above object center"""
@@ -263,7 +244,7 @@ class PandaSim(object):
         """Get position at object center"""
         sph_center = [
             np.mean(self.sph_particles.x),
-            np.mean(self.sph_particles.y) - 0.02,  # 2cm into object
+            np.mean(self.sph_particles.y)+0.005,  # 2cm into object
             np.mean(self.sph_particles.z)
         ]
         return sph_center
@@ -306,7 +287,7 @@ class PandaSim(object):
         if self.state == 6:  # Close gripper
             self.finger_target = 0.01
         elif self.state == 5:  # Open gripper
-            self.finger_target = 0.04
+            self.finger_target = 0.06
             
         # Calculate target position based on state
         if self.state == 1:  # Approach
@@ -354,6 +335,11 @@ class PandaSim(object):
                 self.finger_target,
                 force=20
             )
+
+        # Update SPH simulation
+        for _ in range(5):
+            self.sph_system.step()
+            
 
 
 class PandaSimAuto(PandaSim):
