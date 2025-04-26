@@ -209,9 +209,19 @@ class DeformableObjectSim(Application):
     
 
     def manual_step(self):
+
         """Manually step the SPH simulation once."""
-        self.solver._compute_accelerations(t=self.solver.t, dt=self.solver.dt)
-        self.solver.integrator.step(t=self.solver.t, dt=self.solver.dt)
+        self.solver.acceleration_eval = AccelerationEval(
+            particle_arrays=[self.particle_array],
+            equations=self.create_equations(),
+            kernel=self.kernel,
+            mode ='mpi',
+            backend= 'cuda' # Use 'cuda' for GPU acceleration
+        )
+        integrator = EPECIntegrator(object=SolidMechStep())
+
+        self.solver.acceleration_eval._compute_accelerations(t=self.solver.t, dt=self.solver.dt)
+        integrator.one_timestep(t=self.solver.t, dt=self.solver.dt)
         self.solver.t += self.solver.dt
         self.solver.count += 1
 
