@@ -175,7 +175,7 @@ class DeformableObjectSim(Application):
         nnps = LinkedListNNPS(
             dim=3, 
             particles=particles, 
-            radius=self.particle_radius,
+            radius_scale=self.kernel.radius_scale,
             cache = True
         )
 
@@ -195,5 +195,5 @@ class DeformableObjectSim(Application):
         for ae in solver.acceleration_evals:
             ae.set_nnps(nnps)
         solver.integrator.set_nnps(nnps)
-        
+
         return solver
