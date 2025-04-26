@@ -160,7 +160,6 @@ class DeformableObjectSim(Application):
         # Use EPECIntegrator for elastic dynamics
         from pysph.base.nnps import LinkedListNNPS, DomainManager
         from pysph.sph.acceleration_eval import AccelerationEval
-        from pysph.parallel.parallel_manager import SerialParallelManager
 
         integrator = EPECIntegrator(object=SolidMechStep())
 
