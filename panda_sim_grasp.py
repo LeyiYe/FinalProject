@@ -336,12 +336,15 @@ class PandaSimAuto(PandaSim):
         self.states=[0, 3, 4, 6, 7]
         self.state_durations=[2, 3, 2, 3, 5]
         self.reached_target = False
+        self.target_pos = None
     
     def update_state(self):
         self.state_t += self.control_dt
         # Check if we've reached the target position
-        gripper_pos = self.get_gripper_center()
-        target_pos = self._get_target_pos_for_state(self.states[self.cur_state])
+        current_pos = self._get_gripper_position()
+
+        self.target_pos = self._get_target_pos_for_state(self.states[self.cur_state])
+        
         dist = np.linalg.norm(np.array(gripper_pos) - np.array(target_pos))
         self.reached_target = dist < 0.01  # 1cm threshold
 
@@ -368,3 +371,13 @@ class PandaSimAuto(PandaSim):
             return [self.prev_pos[0], self.prev_pos[1] + 0.001, self.prev_pos[2]]
         else:
             return [0, 0.2, -0.6]  # Default home position
+        
+
+    def _get_gripper_position(self):
+        """Wrapper method to access parent's gripper position"""
+        # Get end effector state
+        link_state = self.bullet_client.getLinkState(
+            self.panda, 
+            pandaEndEffectorIndex
+        )
+        return list(link_state[0])
