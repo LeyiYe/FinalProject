@@ -219,7 +219,7 @@ class DeformableObjectSim(Application):
             backend= 'cuda' # Use 'cuda' for GPU acceleration
         )
         integrator = EPECIntegrator(object=SolidMechStep())
-
+        self.solver.acceleration_eval.set_compiled_object(self.particle_array)
         self.solver.acceleration_eval.compute(t=self.solver.t, dt=self.solver.dt)
         integrator.one_timestep(t=self.solver.t, dt=self.solver.dt)
         self.solver.t += self.solver.dt
