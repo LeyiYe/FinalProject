@@ -82,7 +82,7 @@ class PandaSim(object):
 
     def _position_sph_object(self):
         """Center SPH object on platform"""
-        platform_center = np.array([0, 0, -0.6])  # Above platform center
+        platform_center = np.array([0, 0, -0.4])  # Above platform center
             
             # Calculate particle bounds
         min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
@@ -209,7 +209,7 @@ class PandaSim(object):
 
     def step(self, graspWidth):
         # Update SPH simulation
-        for _ in range(self.sph_substeps):
+        for _ in range(self.sph_app.sph_substeps):
             self.sph_particles.manual_step()
 
         for array in self.sph_solver.particles.arrays:
