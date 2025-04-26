@@ -153,28 +153,28 @@ class PandaSim(object):
         # Update visualization
         self._update_sph_visualization()
 
-        keys = self.bullet_client.getKeyboardEvents()
-        if len(keys)>0:
-            for k,v in keys.items():
-                if v&self.bullet_client.KEY_WAS_TRIGGERED:
-                    if (k==ord('0')):
-                        self.state = 0
-                    if (k==ord('1')):
-                        self.state = 1
-                    if (k==ord('2')):
-                        self.state = 2
-                    if (k==ord('3')): # 物体上方 预抓取位置
-                        self.state = 3
-                    if (k==ord('4')): # 物体抓取位置
-                        self.state = 4
-                    if (k==ord('5')): # 机械手张开
-                            self.state = 5
-                    if (k==ord('6')): # 机械手闭合
-                            self.state = 6
-                    if (k==ord('7')): # 机械手闭合
-                            self.state = 7
-                    if v&self.bullet_client.KEY_WAS_RELEASED:
-                        self.state = 0
+        # keys = self.bullet_client.getKeyboardEvents()
+        # if len(keys)>0:
+        #     for k,v in keys.items():
+        #         if v&self.bullet_client.KEY_WAS_TRIGGERED:
+        #             if (k==ord('0')):
+        #                 self.state = 0
+        #             if (k==ord('1')):
+        #                 self.state = 1
+        #             if (k==ord('2')):
+        #                 self.state = 2
+        #             if (k==ord('3')): # 物体上方 预抓取位置
+        #                 self.state = 3
+        #             if (k==ord('4')): # 物体抓取位置
+        #                 self.state = 4
+        #             if (k==ord('5')): # 机械手张开
+        #                     self.state = 5
+        #             if (k==ord('6')): # 机械手闭合
+        #                     self.state = 6
+        #             if (k==ord('7')): # 机械手闭合
+        #                     self.state = 7
+        #             if v&self.bullet_client.KEY_WAS_RELEASED:
+        #                 self.state = 0
 
 
     def _handle_sph_coupling(self):
@@ -186,7 +186,7 @@ class PandaSim(object):
 
         gripper_force = np.zeros(3)
             
-        # Vectorized interaction calculation (much faster)
+        # Vectorized interaction calculation
         dx = particles.x - gripper_pos[0]
         dy = particles.y - gripper_pos[1]
         dz = particles.z - gripper_pos[2]
