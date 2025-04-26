@@ -39,14 +39,16 @@ class CohesiveForce(Equation):
 
 
 class DeformableObjectSim(Application):
-    def __init__(self, particle_radius=0.01):
+    def __init__(self, particle_radius=0.02):
         self.particle_radius = particle_radius
         self.object_size = 0.05  # 5cm cube
         self.kernel = CubicSpline(dim=3)  # Add this line
         self.particle_array = None
-        self.sph_substeps = 5
         self.solver = None
-        self.initialize()
+        self.nnps = None
+        self.integrator = None
+        self.dt = 1e-4
+        self.t = 0.0
         super().__init__()
         
 
@@ -155,13 +157,13 @@ class DeformableObjectSim(Application):
         from pysph.base.nnps import LinkedListNNPS, DomainManager
         from pysph.sph.acceleration_eval import AccelerationEval
 
-        integrator = EPECIntegrator(object=SolidMechStep())
+        self.integrator = EPECIntegrator(object=SolidMechStep())
 
         self.solver = Solver(
             dim=3, 
-            integrator=integrator, 
+            integrator=self.integrator, 
             kernel=self.kernel,
-            dt=1e-4,  # Initial time step
+            dt=self.dt,  # Initial time step
             tf=1.0,  # Final time
             adaptive_timestep=True,  # Enable adaptive time stepping
             cfl=0.1  # Courant-Friedrichs-Lewy condition
@@ -171,17 +173,11 @@ class DeformableObjectSim(Application):
         particles = [self.particle_array]
         equations = self.create_equations()
 
-        print(f"Particle x range: {min(particles[0].x)} to {max(particles[0].x)}")
-        print(f"Particle y range: {min(particles[0].y)} to {max(particles[0].y)}")
-        print(f"Particle z range: {min(particles[0].z)} to {max(particles[0].z)}")
-
-
-        nnps = LinkedListNNPS(
+        self.nnps = LinkedListNNPS(
             dim=3, 
             particles=particles, 
             radius_scale=self.kernel.radius_scale,
             cache = True,
-            #domain = domain
         )
 
 
@@ -189,40 +185,50 @@ class DeformableObjectSim(Application):
             particles=particles,
             equations=equations,
             kernel=self.kernel,
-            nnps=nnps
+            nnps=self.nnps
         )
 
-        self.solver.acceleration_eval = AccelerationEval(
-            particle_arrays=particles,
-            equations=equations,
-            kernel=self.kernel,
-            mode ='mpi',
-            backend= 'cuda' # Use 'cuda' for GPU acceleration
-        )
+        # self.solver.acceleration_eval = AccelerationEval(
+        #     particle_arrays=particles,
+        #     equations=equations,
+        #     kernel=self.kernel,
+        #     mode ='mpi',
+        #     backend= 'cuda' # Use 'cuda' for GPU acceleration
+        # )
 
         # Now the acceleration_eval should be properly initialized
-        if self.solver.acceleration_eval is None:
-            raise RuntimeError("Failed to initialize acceleration evaluator")
-
-        print(f"Using {self.solver.acceleration_eval.backend} backend for acceleration")
+        if hasattr(self.solver, 'acceleration_eval'):
+            # Optional: Print backend info for debugging
+            print(f"Using {self.solver.acceleration_eval.backend} backend")
         return self.solver
     
+    def step(self):
+        """Perform one complete SPH step and return updated positions"""
+        # Update neighbor lists
+        self.nnps.update()
+        
+        # Perform integration
+        self.solver.step(self.dt)
+        self.time += self.dt
+        
+        # Return current positions for PyBullet
+        return self.particle_array.x, self.particle_array.y, self.particle_array.z
 
-    def manual_step(self):
+    # def manual_step(self):
 
-        """Manually step the SPH simulation once."""
-        self.solver.acceleration_eval = AccelerationEval(
-            particle_arrays=[self.particle_array],
-            equations=self.create_equations(),
-            kernel=self.kernel,
-            mode ='mpi',
-            backend= 'cuda' # Use 'cuda' for GPU acceleration
-        )
-        integrator = EPECIntegrator(object=SolidMechStep())
-        # self.solver.acceleration_eval.set_compiled_object(self.particle_array)
-        # self.solver.acceleration_eval.compute(t=self.solver.t, dt=self.solver.dt)
-        integrator.one_timestep(t=self.solver.t, dt=self.solver.dt)
-        self.solver.t += self.solver.dt
-        self.solver.count += 1
+    #     """Manually step the SPH simulation once."""
+    #     self.solver.acceleration_eval = AccelerationEval(
+    #         particle_arrays=[self.particle_array],
+    #         equations=self.create_equations(),
+    #         kernel=self.kernel,
+    #         mode ='mpi',
+    #         backend= 'cuda' # Use 'cuda' for GPU acceleration
+    #     )
+    #     integrator = EPECIntegrator(object=SolidMechStep())
+    #     # self.solver.acceleration_eval.set_compiled_object(self.particle_array)
+    #     # self.solver.acceleration_eval.compute(t=self.solver.t, dt=self.solver.dt)
+    #     integrator.one_timestep(t=self.solver.t, dt=self.solver.dt)
+    #     self.solver.t += self.solver.dt
+    #     self.solver.count += 1
 
     

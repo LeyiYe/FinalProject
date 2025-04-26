@@ -30,19 +30,11 @@ class PandaSim(object):
         
                 
         # Initialize SPH deformable object
-        self.sph_app = DeformableObjectSim(particle_radius=0.005)  # Smaller particles
-        particle_list = self.sph_app.create_particles()
-        
-        self.sph_particles_list = particle_list
-        self.sph_particles = self.sph_app.get_particles()
-
-        # Position SPH object on platform
-        self._position_sph_object()
+        self.sph_system = DeformableObjectSim(particle_radius=0.005)  # Smaller particles
+        self.sph_particles = self.sph_system.create_particles()[0]
         self.sph_solver = self.sph_app.create_solver()
 
-        
-        self.sph_time = 0.0
-        self.sph_dt = 1e-4
+        self._position_sph_object()
 
         self._create_sph_visualization()
         
@@ -125,22 +117,35 @@ class PandaSim(object):
             self.sph_visuals.append(visual)
 
 
+    # def _update_sph_visualization(self):
+    #     """Update particle positions in visualization"""
+    #     particles = self.sph_solver.particles.array[0]
+    #     for i, visual in enumerate(self.sph_visuals):
+    #         self.bullet_client.resetBasePositionAndOrientation(
+    #                     visual,
+    #                     posObj=[particles.x[i], particles.y[i], particles.z[i]],
+    #                     ornObj=[0, 0, 0, 1]
+    #                 )
+
     def _update_sph_visualization(self):
         """Update particle positions in visualization"""
-        particles = self.sph_solver.particles.array[0]
+        # Get current positions from SPH system
+        x, y, z = self.sph_particles.x, self.sph_particles.y, self.sph_particles.z
+        
         for i, visual in enumerate(self.sph_visuals):
             self.bullet_client.resetBasePositionAndOrientation(
-                        visual,
-                        posObj=[particles.x[i], particles.y[i], particles.z[i]],
-                        ornObj=[0, 0, 0, 1]
-                    )
+                visual,
+                posObj=[x[i], y[i], z[i]],
+                ornObj=[0, 0, 0, 1]
+            )
 
     def reset(self):
         pass
 
     def update_state(self):
         # Update SPH simulation
-        # self.sph_solver.step(self.sph_dt)
+        for _ in range(5):
+            self.sph_system.step()
             
         # Handle coupling between Panda and SPH object
         self._handle_sph_coupling()
@@ -176,27 +181,60 @@ class PandaSim(object):
         """Handle interaction between gripper and SPH object"""
             # Get gripper position and velocity
         gripper_pos = self.get_gripper_center()
+        particles = self.sph_particles
+        stiffness = 1e4
+
         gripper_force = np.zeros(3)
             
-            # Find nearby particles
-        for i in range(len(self.sph_particles.x)):
-            dist = np.linalg.norm([
-            self.sph_particles.x[i] - gripper_pos[0],
-            self.sph_particles.y[i] - gripper_pos[1],
-            self.sph_particles.z[i] - gripper_pos[2]
-            ])
-            if dist < 0.02:
-                stiffness = 1e4
-            displacement = np.array([
-                gripper_pos[0] - self.sph_particles.x[i],
-                gripper_pos[1] - self.sph_particles.y[i],
-                gripper_pos[2] - self.sph_particles.z[i]
-            ])
-            self.sph_particles.u[i] += stiffness * displacement[0] * self.sph_solver.dt
-            self.sph_particles.v[i] += stiffness * displacement[1] * self.sph_solver.dt
-            self.sph_particles.w[i] += stiffness * displacement[2] * self.sph_solver.dt
+        # Vectorized interaction calculation (much faster)
+        dx = particles.x - gripper_pos[0]
+        dy = particles.y - gripper_pos[1]
+        dz = particles.z - gripper_pos[2]
+        dist_sq = dx**2 + dy**2 + dz**2
+        mask = dist_sq < 0.02**2  # Interaction radius squared
+        
+        if np.any(mask):
+            # Normalized direction vectors
+            dist = np.sqrt(dist_sq[mask])
+            nx = dx[mask] / dist
+            ny = dy[mask] / dist
+            nz = dz[mask] / dist
             
-            gripper_force += stiffness * displacement * self.sph_particles.m[i]
+            # Spring force (displacement from equilibrium)
+            displacement = 0.02 - dist
+            force_magnitude = stiffness * displacement
+            
+            # Apply forces to particles
+            particles.u[mask] += force_magnitude * nx * self.sph_system.dt
+            particles.v[mask] += force_magnitude * ny * self.sph_system.dt
+            particles.w[mask] += force_magnitude * nz * self.sph_system.dt
+            
+            # Calculate reaction force on gripper
+            gripper_force = -np.array([
+                np.sum(force_magnitude * nx),
+                np.sum(force_magnitude * ny),
+                np.sum(force_magnitude * nz)
+            ])  
+
+            # Find nearby particles
+        # for i in range(len(self.sph_particles.x)):
+        #     dist = np.linalg.norm([
+        #     self.sph_particles.x[i] - gripper_pos[0],
+        #     self.sph_particles.y[i] - gripper_pos[1],
+        #     self.sph_particles.z[i] - gripper_pos[2]
+        #     ])
+        #     if dist < 0.02:
+        #         stiffness = 1e4
+        #     displacement = np.array([
+        #         gripper_pos[0] - self.sph_particles.x[i],
+        #         gripper_pos[1] - self.sph_particles.y[i],
+        #         gripper_pos[2] - self.sph_particles.z[i]
+        #     ])
+        #     self.sph_particles.u[i] += stiffness * displacement[0] * self.sph_solver.dt
+        #     self.sph_particles.v[i] += stiffness * displacement[1] * self.sph_solver.dt
+        #     self.sph_particles.w[i] += stiffness * displacement[2] * self.sph_solver.dt
+            
+        #     gripper_force += stiffness * displacement * self.sph_particles.m[i]
 
         self.bullet_client.applyExternalForce(
             self.panda,
@@ -209,22 +247,12 @@ class PandaSim(object):
 
     def step(self, graspWidth):
         # Update SPH simulation
-        for _ in range(self.sph_app.sph_substeps):
-            self.sph_solver.step(self.sph_dt)
-        #     self.sph_app.manual_step()
-
-        for array in self.sph_solver.particles.arrays:
-            array.update()
-
-        self._update_sph_visualization()
+        self.update_state()
         # 设置抓取器张开宽度
         if self.state==6:
             self.finger_target = 0.01
         if self.state==5:
             self.finger_target = 0.04 
-    
-        self.update_state()
-
 
         alpha = 0.9 #0.99
         if self.state==1 or self.state==2 or self.state==3 or self.state==4 or self.state==7:
