@@ -39,6 +39,12 @@ class PandaSim(object):
     # Position SPH object on platform
     self._position_sph_object()
     self.sph_solver = self.sph_app.create_solver()
+    self.sph_solver.setup(
+        particles = self.sph_particles_list,
+        equations = self.sph_app.create_equations(),
+        kernel = self.sph_app.kernel,
+    )
+
     # # self.sph_iterator = iter(self.sph_solver.solve())
     # self.sph_solver.setup(
     #     particles = self.sph_particles_list,
@@ -112,7 +118,7 @@ class PandaSim(object):
     rgbaColor=[1, 0, 0, 0.7]  # Slightly transparent
     )
 
-    particles = self.sph_solver.particles.arrays[0]
+    particles = self.sph_solver.particles
 
     for i in range(len(particles.x)):
         # Create visual only - no physics
