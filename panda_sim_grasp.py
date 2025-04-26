@@ -270,14 +270,23 @@ class PandaSim(object):
         self.t += self.control_dt
       
         pos = [self.offset[0]+0.2 * math.sin(1.5 * t), self.offset[1]+self.gripper_height, self.offset[2]+-0.6 + 0.1 * math.cos(1.5 * t)] # 圆形位置
-        if self.state == 3 or self.state== 4:
+        if self.state == 3:
         # 获取红色积木的位置和方向
             sph_center = [
                 np.mean(self.sph_particles.x),
                 np.mean(self.sph_particles.y),
-                np.max(self.sph_particles.z)  # Use max Z for top of object
+                np.mean(self.sph_particles.z)  # Use max Z for top of object
             ]
-            pos = [sph_center[0], self.gripper_height, sph_center[2]]
+            pos = [sph_center[0], sph_center[1]+0.05, sph_center[2]]
+            self.prev_pos = pos
+
+        if self.state == 4:
+            sph_center = [
+                np.mean(self.sph_particles.x),
+                np.mean(self.sph_particles.y),
+                np.mean(self.sph_particles.z)  # Use max Z for top of object
+            ]
+            pos = [sph_center[0], sph_center[1]+0.01, sph_center[2]]
             self.prev_pos = pos
         if self.state == 7:
             pos = self.prev_pos
