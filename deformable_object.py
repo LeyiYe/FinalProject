@@ -5,7 +5,6 @@ from pysph.sph.integrator import EPECIntegrator, PECIntegrator
 from pysph.sph.integrator_step import WCSPHStep
 from pysph.sph.equation import Group
 from pysph.sph.equation import Equation
-from pysph.base.nnps import LinkedListNNPS
 
 from pysph.sph.wc.basic import TaitEOSHGCorrection
 
@@ -153,7 +152,10 @@ class DeformableObjectSim(Application):
 
 
     def create_solver(self):
-
+        from pysph.base.nnps import LinkedListNNPS
+        from pysph.sph.acceleration_eval import make_acceleration_evals
+        from pysph.sph.sph_compiler import SPHCompiler
+    
         # Use EPECIntegrator for elastic dynamics
         # dt = time step
         integrator = EPECIntegrator(object=WCSPHStep())
@@ -167,5 +169,31 @@ class DeformableObjectSim(Application):
                         cfl=0.5, 
                         output_at_times=[1e-1, 1.0])
         
+        particles = self.create_particles()
+        equations = self.create_equations()
 
+        nnps = LinkedListNNPS(
+            dim=3, 
+            particles=particles, 
+            radius=self.particle_radius,
+            cache = True
+        )
+
+        solver.particles = particles
+
+        solver.acceleration_evals = make_acceleration_evals(
+            particles, equations, solver.kernel, 'serial'
+        )
+
+        sph_compiler = SPHCompiler(
+            solver.acceleration_evals,solver.kernel)
+        
+        sph_compiler.compile()
+
+        solver.nnps = nnps
+
+        for ae in solver.acceleration_evals:
+            ae.set_nnps(nnps)
+        solver.integrator.set_nnps(nnps)
+        
         return solver
