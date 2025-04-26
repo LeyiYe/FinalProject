@@ -3,7 +3,7 @@ import pybullet_data as pd
 import math
 import time
 import numpy as np
-import panda_sim_grasp as panda_sim
+import panda_sim_grasp_new as panda_sim
 
 
 fps=240.
