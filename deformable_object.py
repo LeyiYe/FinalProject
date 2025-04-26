@@ -165,7 +165,8 @@ class DeformableObjectSim(Application):
             adaptive_timestep=True,  # Enable adaptive time stepping
             cfl=0.1  # Courant-Friedrichs-Lewy condition
         )
-        
+        solver.pm=None
+
         particles = [self.particle_array]
         equations = self.create_equations()
 
@@ -181,6 +182,7 @@ class DeformableObjectSim(Application):
             cache = True,
             #domain = domain
         )
+
 
         solver.setup(
             particles=particles,
@@ -203,3 +205,5 @@ class DeformableObjectSim(Application):
         self.solver.integrator.step(t=self.solver.t, dt=self.solver.dt)
         self.solver.t += self.solver.dt
         self.solver.count += 1
+
+    
