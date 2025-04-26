@@ -42,6 +42,11 @@ class CohesiveForce(Equation):
             
         d_cohesion[d_idx] += self.k * W * s_m[s_idx]/s_rho[s_idx]
 
+class DummyParallelManager:
+    def __init__(self):
+        self.rank = 0
+        self.size = 1
+
 class DeformableObjectSim(Application):
     def __init__(self, particle_radius=0.01):
         self.particle_radius = particle_radius
@@ -155,6 +160,7 @@ class DeformableObjectSim(Application):
         # Use EPECIntegrator for elastic dynamics
         from pysph.base.nnps import LinkedListNNPS, DomainManager
         from pysph.sph.acceleration_eval import AccelerationEval
+        from pysph.parallel.parallel_manager import SerialParallelManager
 
         integrator = EPECIntegrator(object=SolidMechStep())
 
@@ -166,6 +172,7 @@ class DeformableObjectSim(Application):
                         adaptive_timestep=True,  # Enable adaptive time stepping
                         cfl=0.1  # Courant-Friedrichs-Lewy condition
                         )
+        solver.pm = DummyParallelManager
         
         particles = [self.particle_array]
         equations = self.create_equations()
