@@ -191,6 +191,14 @@ class DeformableObjectSim(Application):
             nnps=nnps
         )
 
+        solver.acceleration_eval = AccelerationEval(
+            particles=particles,
+            equations=equations,
+            kernel=self.kernel,
+            mode ='mpi',
+            backend= 'cuda' # Use 'cuda' for GPU acceleration
+        )
+
         # Now the acceleration_eval should be properly initialized
         if solver.acceleration_eval is None:
             raise RuntimeError("Failed to initialize acceleration evaluator")
