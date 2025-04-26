@@ -153,7 +153,6 @@ class DeformableObjectSim(Application):
 
     def create_solver(self):
         # Use EPECIntegrator for elastic dynamics
-        # dt = time step
         from pysph.base.nnps import LinkedListNNPS
         from pysph.sph.acceleration_eval import AccelerationEval
 
@@ -171,47 +170,26 @@ class DeformableObjectSim(Application):
         particles = self.particles
         equations = self.create_equations()
 
+        print(f"Particle x range: {min(particles[0].x)} to {max(particles[0].x)}")
+        print(f"Particle y range: {min(particles[0].y)} to {max(particles[0].y)}")
+        print(f"Particle z range: {min(particles[0].z)} to {max(particles[0].z)}")
+
+        domain_size = 0.1
+
         nnps = LinkedListNNPS(
             dim=3, 
             particles=particles, 
             radius_scale=self.kernel.radius_scale,
-            cache = True
+            cache = True,
+            domain = ((-domain_size/2, -domain_size/2, -domain_size/2),  # min x,y,z
+            (domain_size/2, domain_size/2, domain_size/2) # max x,y,z
+            )
         )
 
-        # accel_eval = AccelerationEval(
-        #     particles_arrays=particles,
-        #     equations=equations,
-        #     kernel=self.kernel,
-        # )
         solver.setup(
             particles=particles,
             equations=equations,
             kernel=self.kernel,
             nnps=nnps
         )
-
-        # nnps = LinkedListNNPS(
-        #     dim=3, 
-        #     particles=particles, 
-        #     radius_scale=self.kernel.radius_scale,
-        #     cache = True
-        # )
-
-        # solver.particles = particles
-
-        # solver.acceleration_evals = make_acceleration_evals(
-        #     particles, equations, solver.kernel, 'serial'
-        # )
-
-        # sph_compiler = SPHCompiler(
-        #     solver.acceleration_evals,solver.kernel)
-        
-        # sph_compiler.compile()
-
-        # solver.nnps = nnps
-
-        # for ae in solver.acceleration_evals:
-        #     ae.set_nnps(nnps)
-        # solver.integrator.set_nnps(nnps)
-
         return solver
