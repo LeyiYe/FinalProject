@@ -277,7 +277,7 @@ class PandaSim(object):
                 np.mean(self.sph_particles.y),
                 np.mean(self.sph_particles.z)  # Use max Z for top of object
             ]
-            pos = [sph_center[0], sph_center[1]+0.05, sph_center[2]]
+            pos = [sph_center[0], sph_center[1]+0.1, sph_center[2]+0.15]
             self.prev_pos = pos
 
         if self.state == 4:
@@ -286,7 +286,7 @@ class PandaSim(object):
                 np.mean(self.sph_particles.y),
                 np.mean(self.sph_particles.z)  # Use max Z for top of object
             ]
-            pos = [sph_center[0], sph_center[1]+0.01, sph_center[2]]
+            pos = [sph_center[0], sph_center[1], sph_center[2]+0.01]
             self.prev_pos = pos
         if self.state == 7:
             pos = self.prev_pos
@@ -297,7 +297,7 @@ class PandaSim(object):
       	
         orn = self.bullet_client.getQuaternionFromEuler([math.pi/2.,0.,0.])   # 机械手方向
         # 根据目标位置计算关节位置
-        jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos, orn, ll, ul, jr, rp, maxNumIterations=20)
+        jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos, orn, ll, ul, jr, rp, maxNumIterations=200)
 
         for i in range(pandaNumDofs):
             self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL, jointPoses[i],force=5 * 240.)
