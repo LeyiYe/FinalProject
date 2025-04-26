@@ -32,7 +32,7 @@ class PandaSim(object):
         # Initialize SPH deformable object
         self.sph_system = DeformableObjectSim(particle_radius=0.005)  # Smaller particles
         self.sph_particles = self.sph_system.create_particles()[0]
-        self.sph_solver = self.sph_app.create_solver()
+        self.sph_solver = self.sph_system.create_solver()
 
         self._position_sph_object()
 
@@ -96,7 +96,7 @@ class PandaSim(object):
         self.sph_visuals = []
         particle_shape = self.bullet_client.createVisualShape(
         self.bullet_client.GEOM_SPHERE,
-        radius=self.sph_app.particle_radius,
+        radius=self.sph_system.particle_radius,
         rgbaColor=[1, 0, 0, 0.7]  # Slightly transparent
         )
 
@@ -253,6 +253,8 @@ class PandaSim(object):
             self.finger_target = 0.01
         if self.state==5:
             self.finger_target = 0.04 
+
+    
 
         alpha = 0.9 #0.99
         if self.state==1 or self.state==2 or self.state==3 or self.state==4 or self.state==7:
