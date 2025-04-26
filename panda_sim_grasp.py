@@ -41,10 +41,9 @@ class PandaSim(object):
     self.sph_solver = self.sph_app.create_solver()
     #self.sph_iterator = iter(self.sph_solver.solve())
     self.sph_solver.setup(
-        self.sph_particles_list,
-        self.sph_app.create_equations(),
-        self.sph_app.kernel,
-        nnps=None,
+        particle_arrays = self.sph_particles_list,
+        equations = self.sph_app.create_equations(),
+        kernel = self.sph_app.kernel,
     )
     self.sph_time = 0.0
     self.sph_dt = 1e-4
