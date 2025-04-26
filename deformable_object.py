@@ -167,7 +167,7 @@ class DeformableObjectSim(Application):
                         cfl=0.1  # Courant-Friedrichs-Lewy condition
                         )
         
-        particles = self.particle_array
+        particles = [self.particle_array]
         equations = self.create_equations()
 
         print(f"Particle x range: {min(particles[0].x)} to {max(particles[0].x)}")
