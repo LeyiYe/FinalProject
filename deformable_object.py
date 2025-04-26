@@ -1,18 +1,17 @@
 from pysph.base.kernels import CubicSpline
 from pysph.solver.solver import Solver
 from pysph.solver.application import Application
-from pysph.sph.integrator import EPECIntegrator, PECIntegrator
+from pysph.sph.integrator import EPECIntegrator
 from pysph.sph.integrator_step import WCSPHStep, SolidMechStep
 from pysph.sph.equation import Group
 from pysph.sph.equation import Equation
 from pysph.sph.wc.basic import TaitEOSHGCorrection
-from pysph.sph.basic_equations import ContinuityEquation, XSPHCorrection
-from pysph.sph.wc.basic import TaitEOS, MomentumEquation
+from pysph.sph.basic_equations import XSPHCorrection
 from pysph.sph.solid_mech.basic import (
     HookesDeviatoricStressRate, get_particle_array_elastic_dynamics,
     MomentumEquationWithStress, MonaghanArtificialStress
 )
-from pysph.sph.acceleration_eval import AccelerationEval  # Changed from CUDAAccelerationEval
+from pysph.sph.acceleration_eval import AccelerationEval
 import numpy as np
 
 class CohesiveForce(Equation):
@@ -47,6 +46,7 @@ class DeformableObjectSim(Application):
         self.particle_array = None
         self.sph_substeps = 5
         self.solver = None
+        self.initialize()
         super().__init__()
         
 
