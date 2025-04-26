@@ -2,7 +2,7 @@ from pysph.base.kernels import CubicSpline
 from pysph.solver.solver import Solver
 from pysph.solver.application import Application
 from pysph.sph.integrator import EPECIntegrator, PECIntegrator
-from pysph.sph.integrator_step import WCSPHStep
+from pysph.sph.integrator_step import WCSPHStep, SolidMechStep
 from pysph.sph.equation import Group
 from pysph.sph.equation import Equation
 
@@ -152,28 +152,19 @@ class DeformableObjectSim(Application):
 
 
     def create_solver(self):
-        from pysph.base.nnps import LinkedListNNPS
-        from pysph.sph.acceleration_eval import make_acceleration_evals
-        from pysph.sph.sph_compiler import SPHCompiler
-    
         # Use EPECIntegrator for elastic dynamics
         # dt = time step
-        integrator = EPECIntegrator(object=WCSPHStep())
+        integrator = EPECIntegrator(object=SolidMechStep())
 
         solver = Solver(dim=3, 
                         integrator=integrator, 
                         kernel=self.kernel,
-                        tf=1.0, 
-                        dt=1e-4, 
-                        adaptive_timestep=True,
-                        cfl=0.5, 
-                        output_at_times=[1e-1, 1.0])
-        
-        self.set_solver(solver = solver,
-                        equations = self.create_equations(),
-                        particle_finder = None,
-                        cache_nnps=True
-                        ) 
+                        )
+        dt = 1e-4
+        tf=1.0
+        solver.set_time_step(dt)
+        solver.set_final_time(tf)
+        solver.set_print_freq(100)
         
         # particles = self.create_particles()
         # equations = self.create_equations()
