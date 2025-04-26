@@ -175,8 +175,7 @@ class DeformableObjectSim(Application):
             dim=3, 
             particles=particles, 
             radius_scale=self.kernel.radius_scale,
-            cache = True,
-            domain_manager=None
+            cache = True
         )
 
         # accel_eval = AccelerationEval(
