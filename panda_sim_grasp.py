@@ -254,72 +254,117 @@ class PandaSim(object):
         if self.state==5:
             self.finger_target = 0.04 
 
-    
+        sph_center = [
+            np.mean(self.sph_particles.x),
+            np.mean(self.sph_particles.y),
+            np.mean(self.sph_particles.z)  # Use max Z for top of object
+        ]    
 
-        alpha = 0.9 #0.99
-        if self.state==1 or self.state==2 or self.state==3 or self.state==4 or self.state==7:
-            #gripper_height = 0.034
-            self.gripper_height = alpha * self.gripper_height + (1.-alpha)*0.03
-            # print('self.gripper_height = ', self.gripper_height)
+        #alpha = 0.9 #0.99
+        # if self.state==1 or self.state==2 or self.state==3 or self.state==4 or self.state==7:
+        #     #gripper_height = 0.034
+        #     self.gripper_height = alpha * self.gripper_height + (1.-alpha)*0.03
+        #     # print('self.gripper_height = ', self.gripper_height)
 
-        if self.state == 2 or self.state == 3 or self.state == 7:
-                self.gripper_height = alpha * self.gripper_height + (1.-alpha)*0.2
-            # print('self.gripper_height = ', self.gripper_height)
+        # if self.state == 2 or self.state == 3 or self.state == 7:
+        #         self.gripper_height = alpha * self.gripper_height + (1.-alpha)*0.2
+        #     # print('self.gripper_height = ', self.gripper_height)
       
-        t = self.t
-        self.t += self.control_dt
+        # t = self.t
+        # self.t += self.control_dt
       
-        pos = [self.offset[0]+0.2 * math.sin(1.5 * t), self.offset[1]+self.gripper_height, self.offset[2]+-0.6 + 0.1 * math.cos(1.5 * t)] # 圆形位置
+        # pos = [self.offset[0]+0.2 * math.sin(1.5 * t), self.offset[1]+self.gripper_height, self.offset[2]+-0.6 + 0.1 * math.cos(1.5 * t)] # 圆形位置
         if self.state == 3:
         # 获取红色积木的位置和方向
-            sph_center = [
-                np.mean(self.sph_particles.x),
-                np.mean(self.sph_particles.y),
-                np.mean(self.sph_particles.z)  # Use max Z for top of object
-            ]
-            pos = [sph_center[0], sph_center[1]+0.1, sph_center[2]+0.15]
+            pos = [sph_center[0], sph_center[1]+0.05, sph_center[2]]
             self.prev_pos = pos
+            self.gripper_height = pos[1]  # Directly set height
+
 
         if self.state == 4:
-            sph_center = [
-                np.mean(self.sph_particles.x),
-                np.mean(self.sph_particles.y),
-                np.mean(self.sph_particles.z)  # Use max Z for top of object
-            ]
-            pos = [sph_center[0], sph_center[1], sph_center[2]+0.01]
+
+            pos = [sph_center[0], sph_center[1]-0.02, sph_center[2]]
             self.prev_pos = pos
+            self.gripper_height = pos[1]
         if self.state == 7:
             pos = self.prev_pos
-            diffX = pos[0] - self.offset[0]
-            diffZ = pos[2] - (self.offset[2]-0.6)
-            self.prev_pos = [self.prev_pos[0] - diffX*0.1, self.prev_pos[1], self.prev_pos[2]-diffZ*0.1]
+            pos[1]+=0.005
+            self.prev_pos = pos
+            self.gripper_height = pos[1]
 
-      	
+        else:
+            t = self.t
+            self.t += self.control_dt
+            pos = [
+            self.offset[0] + 0.2 * math.sin(1.5 * t),
+            self.gripper_height,
+            self.offset[2] - 0.6 + 0.1 * math.cos(1.5 * t)
+            ]
         orn = self.bullet_client.getQuaternionFromEuler([math.pi/2.,0.,0.])   # 机械手方向
         # 根据目标位置计算关节位置
-        jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos, orn, ll, ul, jr, rp, maxNumIterations=200)
+        jointPoses = self.bullet_client.calculateInverseKinematics(
+            self.panda, 
+            pandaEndEffectorIndex, 
+            pos, 
+            orn, 
+            ll, 
+            ul, 
+            jr, 
+            rp, 
+            maxNumIterations=20)
 
         for i in range(pandaNumDofs):
-            self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL, jointPoses[i],force=5 * 240.)
+            self.bullet_client.setJointMotorControl2(
+                self.panda, i, 
+                self.bullet_client.POSITION_CONTROL, 
+                jointPoses[i],
+                force=5 * 240.)
 
         #target for fingers
         for i in [9,10]:
-            self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,self.finger_target ,force= 10)
+            self.bullet_client.setJointMotorControl2(
+                self.panda, i, 
+                self.bullet_client.POSITION_CONTROL,
+                self.finger_target ,
+                force= 10)
 
 class PandaSimAuto(PandaSim):
     def __init__(self, bullet_client, offset):
         PandaSim.__init__(self, bullet_client, offset)
         self.state_t = 0
         self.cur_state = 0
-        self.states=[0, 3, 5, 4, 6, 3, 7]
-        self.state_durations=[3, 1, 1, 1, 1, 1, 1]
+        self.states=[0, 3, 4, 6, 7]
+        self.state_durations=[2, 3, 2, 3, 5]
+        self.reached_target = False
     
     def update_state(self):
         self.state_t += self.control_dt
+        # Check if we've reached the target position
+        gripper_pos = self.get_gripper_center()
+        target_pos = self._get_target_pos_for_state(self.states[self.cur_state])
+        dist = np.linalg.norm(np.array(gripper_pos) - np.array(target_pos))
+        self.reached_target = dist < 0.01  # 1cm threshold
+
         if self.state_t > self.state_durations[self.cur_state]:
             self.cur_state += 1
             if self.cur_state >= len(self.states):
                 self.cur_state = 0
         self.state_t = 0
         self.state=self.states[self.cur_state]
+        self.reached_target = False
         #print("self.state=",self.state)
+
+    def _get_target_pos_for_state(self, state):
+        # Same position logic as in step()
+        sph_center = [np.mean(self.sph_particles.x),
+                     np.mean(self.sph_particles.y),
+                     np.mean(self.sph_particles.z)]
+        
+        if state == 3:
+            return [sph_center[0], sph_center[1] + 0.05, sph_center[2]]
+        elif state == 4:
+            return [sph_center[0], sph_center[1] - 0.02, sph_center[2]]
+        elif state == 7:
+            return [self.prev_pos[0], self.prev_pos[1] + 0.001, self.prev_pos[2]]
+        else:
+            return [0, 0.2, -0.6]  # Default home position
