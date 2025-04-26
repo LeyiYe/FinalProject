@@ -115,15 +115,15 @@ class PandaSim(object):
 
     particles = self.sph_solver.particles
 
-    for i in range(len(particles)):
+    for i in range(len(particles[0].x)):
         # Create visual only - no physics
         visual = self.bullet_client.createMultiBody(
             baseMass=0,  # Massless
             baseVisualShapeIndex=particle_shape,
             basePosition=[
-                particles.x[i],
-                particles.y[i],
-                particles.z[i]
+                particles[0].x[i],
+                particles[0].y[i],
+                particles[0].z[i]
             ],
             baseCollisionShapeIndex=-1  # No collision
         )
