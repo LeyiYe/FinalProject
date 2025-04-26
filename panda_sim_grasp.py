@@ -112,7 +112,7 @@ class PandaSim(object):
     rgbaColor=[1, 0, 0, 0.7]  # Slightly transparent
     )
 
-    particles = self.sph_solver.particles
+    particles = self.sph_solver.particles.arrays[0]
 
     for i in range(len(particles.x)):
         # Create visual only - no physics
