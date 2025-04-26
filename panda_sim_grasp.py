@@ -48,7 +48,7 @@ class PandaSim(object):
     self.sph_time = 0.0
     self.sph_dt = 1e-4
 
-
+    self._create_sph_visualization()
     
     orn=[-0.707107, 0.0, 0.0, 0.707107]#p.getQuaternionFromEuler([-math.pi/2,math.pi/2,0])
     eul = self.bullet_client.getEulerFromQuaternion([-0.5, -0.5, -0.5, 0.5])
@@ -84,8 +84,6 @@ class PandaSim(object):
         index=index+1
     self.t = 0.
 
-    self._create_sph_visualization()
-
   def _position_sph_object(self):
       """Center SPH object on platform"""
       platform_center = np.array([0, 0.3, -0.55])  # Above platform center
@@ -114,7 +112,7 @@ class PandaSim(object):
     rgbaColor=[1, 0, 0, 0.7]  # Slightly transparent
     )
 
-    particles = self.sph_solver.particles.arrays[0]
+    particles = self.sph_solver.particles
 
     for i in range(len(particles.x)):
         # Create visual only - no physics
