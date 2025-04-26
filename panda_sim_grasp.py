@@ -87,7 +87,7 @@ class PandaSim(object):
 
   def _position_sph_object(self):
       """Center SPH object on platform"""
-      platform_center = np.array([0, 0.3, -0.55])  # Above platform center
+      platform_center = np.array([0, 0, -0.6])  # Above platform center
         
         # Calculate particle bounds
       min_x, max_x = np.min(self.sph_particles.x), np.max(self.sph_particles.x)
@@ -128,37 +128,7 @@ class PandaSim(object):
             baseCollisionShapeIndex=-1  # No collision
         )
         self.sph_visuals.append(visual)
-    #   particle_radius = self.sph_app.particle_radius
-        
-    #   for i in range(len(self.sph_particles.x)):
-    #     collision_shape = self.bullet_client.createCollisionShape(
-    #             self.bullet_client.GEOM_SPHERE,
-    #             radius=particle_radius
-    #         )
-    #     visual_shape = self.bullet_client.createVisualShape(
-    #             self.bullet_client.GEOM_SPHERE,
-    #             radius=particle_radius,
-    #             rgbaColor=[1, 0, 0, 1]  # Red color
-    #         )
-    #     particle_mass = self.sph_particles.m[i]
-    #     body = self.bullet_client.createMultiBody(
-    #             baseMass=particle_mass,
-    #             baseCollisionShapeIndex=collision_shape,
-    #             baseVisualShapeIndex=visual_shape,
-    #             basePosition=[
-    #                 self.sph_particles.x[i],
-    #                 self.sph_particles.y[i],
-    #                 self.sph_particles.z[i]
-    #             ],
-    #             baseOrientation=[0, 0, 0, 1]
-    #         )
-    #     # set pysics properties
-    #     self.bullet_client.changeDynamics(body, 
-    #                                       -1, 
-    #                                       lateralFriction = 0.5, 
-    #                                       restitution = 0.3, 
-    #                                       linearDamping=0.1)
-    #   self.sph_visuals.append(body)
+
 
   def _update_sph_visualization(self):
     """Update particle positions in visualization"""

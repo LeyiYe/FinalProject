@@ -176,6 +176,14 @@ class DeformableObjectSim(Application):
         print(f"Particle y range: {min(particles[0].y)} to {max(particles[0].y)}")
         print(f"Particle z range: {min(particles[0].z)} to {max(particles[0].z)}")
 
+         # Create acceleration evaluator with CUDA backend
+        accel_eval = AccelerationEval(
+            particle_arrays=particles,
+            equations=equations,
+            kernel=self.kernel,
+            backend='cuda'  # Force CUDA backend
+        )
+
         nnps = LinkedListNNPS(
             dim=3, 
             particles=particles, 
@@ -184,13 +192,7 @@ class DeformableObjectSim(Application):
             #domain = domain
         )
 
-        # Create acceleration evaluator with CUDA backend
-        accel_eval = AccelerationEval(
-            particle_arrays=particles,
-            equations=equations,
-            kernel=self.kernel,
-            backend='cuda'  # Force CUDA backend
-        )
+       
 
         solver.setup(
             particles=particles,
