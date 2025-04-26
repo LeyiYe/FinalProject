@@ -37,10 +37,7 @@ class CohesiveForce(Equation):
             
         d_cohesion[d_idx] += self.k * W * s_m[s_idx]/s_rho[s_idx]
 
-class DummyParallelManager:
-    def __init__(self):
-        self.rank = 0
-        self.size = 1
+
 
 class DeformableObjectSim(Application):
     def __init__(self, particle_radius=0.01):
@@ -48,6 +45,7 @@ class DeformableObjectSim(Application):
         self.object_size = 0.05  # 5cm cube
         self.kernel = CubicSpline(dim=3)  # Add this line
         self.particle_array = None
+        self.sph_substeps = 5
         super().__init__()
         
 
@@ -167,7 +165,6 @@ class DeformableObjectSim(Application):
             adaptive_timestep=True,  # Enable adaptive time stepping
             cfl=0.1  # Courant-Friedrichs-Lewy condition
         )
-        solver.pm = DummyParallelManager
         
         particles = [self.particle_array]
         equations = self.create_equations()
@@ -176,13 +173,6 @@ class DeformableObjectSim(Application):
         print(f"Particle y range: {min(particles[0].y)} to {max(particles[0].y)}")
         print(f"Particle z range: {min(particles[0].z)} to {max(particles[0].z)}")
 
-         # Create acceleration evaluator with CUDA backend
-        accel_eval = AccelerationEval(
-            particle_arrays=particles,
-            equations=equations,
-            kernel=self.kernel,
-            backend='cuda'  # Force CUDA backend
-        )
 
         nnps = LinkedListNNPS(
             dim=3, 
@@ -192,8 +182,6 @@ class DeformableObjectSim(Application):
             #domain = domain
         )
 
-       
-
         solver.setup(
             particles=particles,
             equations=equations,
@@ -201,9 +189,17 @@ class DeformableObjectSim(Application):
             nnps=nnps
         )
 
-        solver.acceleration_eval = accel_eval
-        solver.acceleration_eval.set_nnps(nnps)
-        solver.acceleration_eval.update_particle_arrays(particles)
+        # Now the acceleration_eval should be properly initialized
+        if solver.acceleration_eval is None:
+            raise RuntimeError("Failed to initialize acceleration evaluator")
 
         print(f"Using {solver.acceleration_eval.backend} backend for acceleration")
         return solver
+    
+
+    def manual_step(self):
+        """Manually step the SPH simulation once."""
+        self.solver._compute_accelerations(t=self.solver.t, dt=self.solver.dt)
+        self.solver.integrator.step(t=self.solver.t, dt=self.solver.dt)
+        self.solver.t += self.solver.dt
+        self.solver.count += 1
