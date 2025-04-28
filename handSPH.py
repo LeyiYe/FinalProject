@@ -62,7 +62,7 @@ class DeformableObjectWithGrippers(Application):
             dx=self.dx, 
             length=OBJECT_WIDTH, 
             height=OBJECT_HEIGHT,
-            width=OBJECT_DEPTH,
+            depth=OBJECT_DEPTH,
             center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2]
         )
         
@@ -106,7 +106,7 @@ class DeformableObjectWithGrippers(Application):
             dx=self.dx,
             length=BOX_WIDTH,
             height=PLATFORM_HEIGHT,
-            width=BOX_DEPTH,
+            depth=BOX_DEPTH,
             center=[0, PLATFORM_HEIGHT/2, 0])
         
         platform_pa = get_particle_array_rigid_body(
@@ -127,7 +127,7 @@ class DeformableObjectWithGrippers(Application):
             dx=self.dx,
             length=GRIPPER_WIDTH,
             height=GRIPPER_HEIGHT,
-            width=GRIPPER_WIDTH,
+            depth=GRIPPER_WIDTH,
             center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
         )
         left_gripper_z = np.zeros_like(left_gripper_x)
