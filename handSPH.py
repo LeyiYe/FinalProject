@@ -63,7 +63,7 @@ class DeformableObjectWithGrippers(Application):
             length=OBJECT_WIDTH, 
             height=OBJECT_HEIGHT,
             depth=OBJECT_DEPTH,
-            center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2]
+            center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2, 0]
         )
         
         # Add some random perturbation
@@ -128,7 +128,7 @@ class DeformableObjectWithGrippers(Application):
             length=GRIPPER_WIDTH,
             height=GRIPPER_HEIGHT,
             depth=GRIPPER_WIDTH,
-            center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
+            center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2, 0]
         )
         
         left_gripper_pa = get_particle_array_rigid_body(
@@ -149,7 +149,7 @@ class DeformableObjectWithGrippers(Application):
             length=GRIPPER_WIDTH,
             height=GRIPPER_HEIGHT,
             depth=GRIPPER_WIDTH,
-            center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
+            center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2, 0]
         )
         
         right_gripper_pa = get_particle_array_rigid_body(
