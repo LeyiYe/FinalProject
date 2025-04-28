@@ -267,8 +267,8 @@ class DeformableObjectWithGrippers(Application):
             ], real=False),
 
             Group(equations=[
-                MonaghanBoundaryForce(dest='object', sources=['platform']),
-                MonaghanBoundaryForce(dest='platform', sources=['object']),
+                MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=0.1*self.dx),
+                MonaghanBoundaryForce(dest='platform', sources=['object'], deltap=0.1*self.dx),
             ], real=True),
         
 
