@@ -26,7 +26,7 @@ def create_panda_hand(dx=0.05):
     # 2. Create two gripper blocks (left and right)
     gripper_params = [
         # (x_offset, z_offset, length, height, depth)
-        (0.0, 0.12, 0.2, 0.08, 0.05),  # Right gripper
+        (0.8, 0.12, 0.2, 0.08, 0.05),  # Right gripper
         (0.0, -0.12, 0.2, 0.08, 0.05)   # Left gripper
     ]
     
