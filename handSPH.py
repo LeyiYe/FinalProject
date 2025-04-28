@@ -59,7 +59,7 @@ def create_panda_hand(dx=0.02):
     for name, pos, length, segments in finger_params:
         tip_x, tip_y, tip_z = get_3d_sphere(
             dx*0.7,
-            radius=0.03,
+            r=0.03,
             center=np.array([
                 pos[0] + length if name != 'thumb' else pos[0] + length*0.7,
                 pos[1],
