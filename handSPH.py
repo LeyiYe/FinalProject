@@ -12,6 +12,7 @@ from pysph.sph.wc.basic import TaitEOS, MomentumEquation
 from pysph.base.utils import get_particle_array_rigid_body
 from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
 from pysph.tools import geometry as G
+from pysph.sph.wc.gtvf import VelocityGradient
 import numpy as np
 
 # Material properties for rubber-like material
@@ -225,8 +226,21 @@ class DeformableObjectWithGrippers(Application):
         
         return solver
     
+
+
     def create_equations(self):
         equations = [
+        Group(
+            equations=[
+                # This calculates velocity gradients (du, dv, dw)
+                VelocityGradient(
+                    dest='object', 
+                    sources=['object', 'platform', 'left_gripper', 'right_gripper']
+                ),
+            ],
+            real=True
+        ),
+
             # Density summation for object
             Group(
                 equations=[
