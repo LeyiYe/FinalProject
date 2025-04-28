@@ -10,7 +10,7 @@ from pysph.sph.basic_equations import (
 )
 
 from pysph.sph.solid_mech.basic import (
-    HookeDeviatoricStressRate,
+    HookesDeviatoricStressRate,
     EnergyEquationWithStress,
     MonaghanArtificialStress
 )
@@ -259,7 +259,7 @@ class DeformableObjectWithGrippers(Application):
             
             # Stress and energy equations for rubber
             Group(equations=[
-                HookeDeviatoricStressRate(
+                HookesDeviatoricStressRate(
                     dest='object',
                     sources=['object'],
                     shear_modulus=STIFFNESS/(2*(1+0.3)),  # G = E/(2(1+ν))
