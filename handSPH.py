@@ -1,143 +1,234 @@
-import numpy as np
 from pysph.base.kernels import CubicSpline
+from pysph.base.utils import get_particle_array
 from pysph.solver.application import Application
-from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision, 
-                                  RigidBodyMoments, RigidBodyMotion,
-                                  RK2StepRigidBody)
+from pysph.solver.solver import Solver
 from pysph.sph.integrator import EPECIntegrator
-from pysph.tools.geometry import get_3d_block
+from pysph.sph.integrator_step import WCSPHStep
+from pysph.sph.equation import Group
+from pysph.sph.basic_equations import (
+    ContinuityEquation, XSPHCorrection, SummationDensity
+)
+from pysph.sph.wc.basic import TaitEOS, MomentumEquation
+from pysph.tools import geometry as G
+import numpy as np
 
-def create_panda_hand(dx=0.05):
-    """Create a Panda robotic hand with left and right grippers for grasping."""
-    particles = {'x': [], 'y': [], 'z': []}
-    
-    # 1. Create main body (central rectangular block)
-    main_body_x, main_body_y, main_body_z = get_3d_block(
-        dx, 
-        length=0.1,   # Shorter length for the base
-        height=0.15,    # Height of main body
-        depth=0.2,     # Wider depth to accommodate side grippers
-        center=np.array([0.0, 0.0, 0.0])
-    )
-    particles['x'].append(main_body_x)
-    particles['y'].append(main_body_y)
-    particles['z'].append(main_body_z)
-    
-    # 2. Create two gripper blocks (left and right)
-    gripper_params = [
-        # (x_offset, z_offset, length, height, depth)
-        (0.0, 0.12, 0.2, 0.08, 0.05),  # Right gripper
-        (0.0, -0.12, 0.2, 0.08, 0.05)   # Left gripper
-    ]
-    
-    for x_off, z_off, l, h, d in gripper_params:
-        gx, gy, gz = get_3d_block(
-            dx,
-            length=l,
-            height=h,
-            depth=d,
-            center=np.array([x_off, 0.0, z_off])  # Centered vertically (y=0)
+# Material properties for rubber-like material
+DENSITY = 1000.0  # kg/m^3
+STIFFNESS = 1e5    # Bulk modulus
+VISCOSITY = 0.1    # Viscosity coefficient
+ALPHA = 0.1        # Artificial viscosity coefficient
+BETA = 0.0         # Second artificial viscosity coefficient
+GAMMA = 7.0        # Tait EOS exponent
+YIELD_STRESS = 100 # Yield stress for plasticity
+
+# Simulation parameters
+DT = 1e-4
+TFINAL = 5.0
+DIM = 2
+
+# Domain and object dimensions
+BOX_WIDTH = 2.0
+BOX_HEIGHT = 2.0
+PLATFORM_HEIGHT = 0.1
+OBJECT_WIDTH = 0.5
+OBJECT_HEIGHT = 0.3
+GRIPPER_WIDTH = 0.1
+GRIPPER_HEIGHT = 0.3
+GRIPPER_SPEED = 0.5
+
+class DeformableObjectWithGrippers(Application):
+    def add_user_options(self, group):
+        group.add_argument(
+            "--nx", action="store", type=int, dest="nx", default=20,
+            help="Number of particles along x direction in object."
         )
-        particles['x'].append(gx)
-        particles['y'].append(gy)
-        particles['z'].append(gz)
     
-    # Combine all components
-    x = np.concatenate(particles['x'])
-    y = np.concatenate(particles['y'])
-    z = np.concatenate(particles['z'])
+    def consume_user_options(self):
+        self.nx = self.options.nx
+        self.ny = int(self.nx * OBJECT_HEIGHT / OBJECT_WIDTH)
+        self.hdx = 1.2
+        self.dx = OBJECT_WIDTH / self.nx
     
-    return x, y, z
-
-class PandaHandSimulation(Application):
-    def initialize(self):
-        # More stable parameters
-        self.dx = 0.05          # Coarser spacing for stability
-        self.hdx = 1.5          # Larger smoothing length
-        self.ro = 2500.0        # Density
-        self.rigid_body_mass = 3.5
-        self.kn = 1e5           # Reduced stiffness (was 1e7)
-        self.mu = 0.5           # Moderate friction
-        self.en = 0.1           # Slightly higher restitution
-        
     def create_particles(self):
-        from pysph.base.utils import get_particle_array_rigid_body
-        
-        x, y, z = create_panda_hand(self.dx)
-        
-        hand = get_particle_array_rigid_body(
-            x=x, y=y, z=z,
-            h=self.hdx*self.dx,
-            m=self.rigid_body_mass/len(x),
-            rho=self.ro,
-            name='hand'
+        # Create the deformable object
+        x, y = G.get_2d_block(
+            dx=self.dx, 
+            length=OBJECT_WIDTH, 
+            height=OBJECT_HEIGHT,
+            center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2]
         )
-        hand.total_mass[0] = self.rigid_body_mass
-        hand.body_id[:] = 1
         
-        # Simpler test object
-        obj_x, obj_y, obj_z = get_3d_block(
-            self.dx, length=0.1, height=0.1, depth=0.1,
-            center=np.array([0.2, 0.0, 0.0])
-        )
-        obj = get_particle_array_rigid_body(
-            x=obj_x, y=obj_y, z=obj_z,
-            h=self.hdx*self.dx,
-            m=0.3/len(obj_x),
-            rho=self.ro,
-            name='object'
-        )
-        obj.body_id[:] = 2
-        obj.total_mass[0] = np.sum(obj.m)
+        # Add some random perturbation
+        x += np.random.uniform(-self.dx/4, self.dx/4, len(x))
+        y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
         
-        return [hand, obj]
+        # Create particle array for the object
+        object_pa = get_particle_array(
+            name='object',
+            x=x, y=y,
+            h=np.ones_like(x) * self.hdx * self.dx,
+            m=np.ones_like(x) * DENSITY * self.dx**2,
+            rho=np.ones_like(x) * DENSITY,
+            cs=np.ones_like(x) * np.sqrt(STIFFNESS/DENSITY),
+            e=np.ones_like(x)
+        )
+        
+        # Create platform particles
+        platform_x, platform_y = G.get_2d_block(
+            dx=self.dx,
+            length=BOX_WIDTH,
+            height=PLATFORM_HEIGHT,
+            center=[0, PLATFORM_HEIGHT/2]
+        )
+        
+        platform_pa = get_particle_array(
+            name='platform',
+            x=platform_x, y=platform_y,
+            h=np.ones_like(platform_x) * self.hdx * self.dx,
+            m=np.ones_like(platform_x) * DENSITY * self.dx**2,
+            rho=np.ones_like(platform_x) * DENSITY * 100,  # Make platform dense
+            cs=np.ones_like(platform_x) * np.sqrt(STIFFNESS/DENSITY)*10
+        )
+        
+        # Create gripper particles (left and right)
+        left_gripper_x, left_gripper_y = G.get_2d_block(
+            dx=self.dx,
+            length=GRIPPER_WIDTH,
+            height=GRIPPER_HEIGHT,
+            center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
+        )
+        
+        right_gripper_x, right_gripper_y = G.get_2d_block(
+            dx=self.dx,
+            length=GRIPPER_WIDTH,
+            height=GRIPPER_HEIGHT,
+            center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
+        )
+        
+        left_gripper_pa = get_particle_array(
+            name='left_gripper',
+            x=left_gripper_x, y=left_gripper_y,
+            h=np.ones_like(left_gripper_x) * self.hdx * self.dx,
+            m=np.ones_like(left_gripper_x) * DENSITY * self.dx**2 * 10,  # Make grippers heavier
+            rho=np.ones_like(left_gripper_x) * DENSITY * 10,
+            cs=np.ones_like(left_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10
+        )
+        
+        right_gripper_pa = get_particle_array(
+            name='right_gripper',
+            x=right_gripper_x, y=right_gripper_y,
+            h=np.ones_like(right_gripper_x) * self.hdx * self.dx,
+            m=np.ones_like(right_gripper_x) * DENSITY * self.dx**2 * 10,
+            rho=np.ones_like(right_gripper_x) * DENSITY * 10,
+            cs=np.ones_like(right_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10
+        )
+        
+        return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
     
     def create_solver(self):
-        kernel = CubicSpline(dim=3)
-        integrator = EPECIntegrator(
-            hand=RK2StepRigidBody(), 
-            object=RK2StepRigidBody()
-        )
+        kernel = CubicSpline(dim=DIM)
         
-        from pysph.solver.solver import Solver
+        integrator = EPECIntegrator(object=WCSPHStep(), platform=WCSPHStep(),
+                                  left_gripper=WCSPHStep(), right_gripper=WCSPHStep())
+        
         solver = Solver(
             kernel=kernel,
-            dim=3,
+            dim=DIM,
             integrator=integrator,
-            dt=1e-4,           # Larger timestep
-            tf=1.0,            # Shorter simulation time
+            dt=DT,
+            tf=TFINAL,
             adaptive_timestep=True,
-            pfreq=50           # Print progress more frequently
+            output_at_times=[0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
         )
+        
         return solver
     
     def create_equations(self):
         equations = [
-            BodyForce(dest='hand', sources=None, gy=-9.81),
-            BodyForce(dest='object', sources=None, gy=-9.81),
-            
-            RigidBodyCollision(
-                dest='hand',
-                sources=['hand', 'object'],
-                kn=self.kn,
-                mu=self.mu,
-                en=self.en,
-            ),
-            RigidBodyCollision(
-                dest='object',
-                sources=['hand', 'object'],
-                kn=self.kn,
-                mu=self.mu,
-                en=self.en,
+            # Density summation for object
+            Group(
+                equations=[
+                    SummationDensity(dest='object', sources=['object', 'platform', 'left_gripper', 'right_gripper'])
+                ],
+                real=False
             ),
             
-            RigidBodyMoments(dest='hand', sources=None),
-            RigidBodyMotion(dest='hand', sources=None),
-            RigidBodyMoments(dest='object', sources=None),
-            RigidBodyMotion(dest='object', sources=None),
+            # Tait equation of state for object
+            Group(
+                equations=[
+                    TaitEOS(
+                        dest='object', sources=None, 
+                        rho0=DENSITY, c0=np.sqrt(STIFFNESS/DENSITY), gamma=GAMMA
+                    )
+                ],
+                real=False
+            ),
+            
+            # Momentum equation with artificial viscosity
+            Group(
+                equations=[
+                    ContinuityEquation(
+                        dest='object', 
+                        sources=['object', 'platform', 'left_gripper', 'right_gripper']
+                    ),
+                    MomentumEquation(
+                        dest='object', 
+                        sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+                        alpha=ALPHA, beta=BETA, gz=-9.81
+                    ),
+                    XSPHCorrection(
+                        dest='object', 
+                        sources=['object'], 
+                        eps=0.5
+                    )
+                ],
+                real=True
+            ),
+            
+            # Platform and grippers are treated as rigid bodies (no equations)
         ]
+        
         return equations
+    
+    def pre_step(self, solver):
+        # This gets called before each time step
+        current_time = solver.t
+        
+        # Control gripper movement
+        left_gripper = self.particles['left_gripper']
+        right_gripper = self.particles['right_gripper']
+        
+        # First phase: Close grippers
+        if current_time < 1.0:
+            left_gripper.x[:] += GRIPPER_SPEED * DT
+            right_gripper.x[:] -= GRIPPER_SPEED * DT
+        # Second phase: Lift grippers
+        elif current_time < 3.0:
+            left_gripper.y[:] += GRIPPER_SPEED * DT
+            right_gripper.y[:] += GRIPPER_SPEED * DT
+        
+        # Update velocities for visualization
+        left_gripper.u[:] = GRIPPER_SPEED if current_time < 1.0 else 0.0
+        left_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
+        right_gripper.u[:] = -GRIPPER_SPEED if current_time < 1.0 else 0.0
+        right_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
+        
+        # Simple plasticity model - yield stress
+        object_pa = self.particles['object']
+        strain = np.sqrt(object_pa.du**2 + object_pa.dv**2) / STIFFNESS
+        plastic = strain > YIELD_STRESS
+        if np.any(plastic):
+            object_pa.u[plastic] *= 0.99  # Dampen velocity for plastic deformation
+            object_pa.v[plastic] *= 0.99
+    
+    def post_step(self, solver):
+        # This gets called after each time step
+        pass
+    
+    def post_process(self):
+        # This gets called after simulation completes
+        pass
 
 if __name__ == '__main__':
-    app = PandaHandSimulation()
+    app = DeformableObjectWithGrippers()
     app.run()
