@@ -327,14 +327,6 @@ class DeformableObjectWithGrippers(Application):
         left_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
         right_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
         
-        # Simple plasticity model
-        object_pa = self.particle_arrays['object']
-        strain = np.sqrt(object_pa.du**2 + object_pa.dv**2 + object_pa.dw**2) / STIFFNESS
-        plastic = strain > YIELD_STRESS
-        if np.any(plastic):
-            object_pa.u[plastic] *= 0.99
-            object_pa.v[plastic] *= 0.99
-            object_pa.w[plastic] *= 0.99
     
     def post_step(self, solver):
         pass
