@@ -5,14 +5,15 @@ from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision,
                                   RK2StepRigidBody)
 from pysph.sph.integrator import EPECIntegrator
 from pysph.tools.geometry import get_3d_block
+import numpy as np
 
 def create_panda_hand(dx=0.05):
     # Palm (main body)
     palm = get_3d_block(dx, length=0.3, height=0.2, depth=0.15)
     
     # Fingers (simplified as cylinders)
-    fingers = []
-    for i in range(5):  # 5 fingers
+    fingers = np.array([])
+    for i in range(2):  # 5 fingers
         finger = get_3d_block(dx, length=0.15, height=0.05, depth=0.05)
         # Position each finger
         finger.x += 0.15 + i*0.03
