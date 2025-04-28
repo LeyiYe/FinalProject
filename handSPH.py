@@ -4,10 +4,8 @@ from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision,
                                   RigidBodyMoments, RigidBodyMotion,
                                   RK2StepRigidBody)
 from pysph.sph.integrator import EPECIntegrator
+from pysph.tools.geometry import get_3d_block
 
-from pysph.tools.geometry import get_3d_block, get_3d_sphere, rotate
-
-# Create basic shapes and combine them to form a panda hand
 def create_panda_hand(dx=0.05):
     # Palm (main body)
     palm = get_3d_block(dx, length=0.3, height=0.2, width=0.15)
@@ -27,7 +25,6 @@ def create_panda_hand(dx=0.05):
         hand.add_particles(finger)
     
     return hand
-
 
 class PandaHandSimulation(Application):
     def initialize(self):
@@ -49,7 +46,6 @@ class PandaHandSimulation(Application):
     
     def create_solver(self):
         kernel = CubicSpline(dim=3)
-        
         integrator = EPECIntegrator(hand=RK2StepRigidBody())
         
         from pysph.solver.solver import Solver
@@ -61,16 +57,17 @@ class PandaHandSimulation(Application):
         equations = [
             BodyForce(dest='hand', sources=None),
             RigidBodyCollision(
-                dest='hand', sources=['hand'], k=1.0, d=0.1, eta=0.1, kt=0.1
+                dest='hand', 
+                sources=['hand'],
+                kn=1e5,       # Normal spring stiffness (increase for harder collisions)
+                mu=0.3,       # Friction coefficient
+                en=0.7        # Coefficient of restitution
             ),
             RigidBodyMoments(dest='hand', sources=None),
             RigidBodyMotion(dest='hand', sources=None),
         ]
         return equations
-    
-#from pysph.tools import pysph_viewer
 
 if __name__ == '__main__':
     app = PandaHandSimulation()
     app.run()
-    #pysph_viewer.viewer.show(app.solver)
