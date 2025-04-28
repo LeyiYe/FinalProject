@@ -68,7 +68,7 @@ class DeformableObjectWithGrippers(Application):
         y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
         z = np.zeros_like(x)  # For 2D simulation
         
-        particle_mass = (dx**3) * DENSITY
+        particle_mass = (self.dx**3) * DENSITY
 
         # Create elastic object particle array
         object_pa = get_particle_array_elastic_dynamics(
@@ -84,7 +84,7 @@ class DeformableObjectWithGrippers(Application):
             w=np.zeros_like(x),
             rho=np.ones_like(x)*DENSITY,
             m=np.ones_like(x)*particle_mass,
-            h=np.ones_like(x)*dx*1.2,
+            h=np.ones_like(x)*self.dx*1.2,
             p=np.zeros_like(x),
             # Initialize stress tensor components to zero
             s00=np.zeros_like(x),
