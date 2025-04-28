@@ -5,7 +5,7 @@ from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision,
                                   RigidBodyMoments, RigidBodyMotion,
                                   RK2StepRigidBody)
 from pysph.sph.integrator import EPECIntegrator
-from pysph.tools.geometry import get_3d_block, get_3d_cylinder, get_3d_sphere
+from pysph.tools.geometry import get_3d_block, get_3d_hollow_cylinder, get_3d_sphere
 
 def create_panda_hand(dx=0.02):
     """Create a detailed Panda robotic hand model with fingers."""
@@ -21,10 +21,9 @@ def create_panda_hand(dx=0.02):
     particles['z'].append(palm_z)
     
     # 2. Create wrist/base (cylindrical)
-    wrist_x, wrist_y, wrist_z = get_3d_cylinder(
-        dx, length=0.1, radius=0.06,
-        center=np.array([-0.1, 0.0, 0.0]),
-        axis='x'
+    wrist_x, wrist_y, wrist_z = get_3d_hollow_cylinder(
+        dx, length=0.1, r=0.06,
+        center=np.array([-0.1, 0.0, 0.0])
     )
     particles['x'].append(wrist_x)
     particles['y'].append(wrist_y)
