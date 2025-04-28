@@ -13,7 +13,7 @@ def create_panda_hand(dx=0.05):
     # Fingers (simplified as cylinders)
     fingers = []
     for i in range(5):  # 5 fingers
-        finger = get_3d_block(dx, length=0.15, height=0.05, width=0.05)
+        finger = get_3d_block(dx, length=0.15, height=0.05, depth=0.05)
         # Position each finger
         finger.x += 0.15 + i*0.03
         finger.y += 0.05 if i%2 else -0.05
