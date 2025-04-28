@@ -97,7 +97,9 @@ class DeformableObjectWithGrippers(Application):
             au=np.zeros_like(x),
             av=np.zeros_like(x),
             aw=np.zeros_like(x),
-            cs=np.ones_like(x)*c0  # Speed of sound
+            cs=np.ones_like(x)*c0,  # Speed of sound
+
+    
         )
         
         # Create platform particles
@@ -115,7 +117,11 @@ class DeformableObjectWithGrippers(Application):
             h=np.ones_like(platform_x) * self.hdx * self.dx,
             m=np.ones_like(platform_x) * self.particle_mass,
             rho=np.ones_like(platform_x) * DENSITY * 100,
-            cs=np.ones_like(platform_x) * c0 * 10
+            cs=np.ones_like(platform_x) * c0 * 10,
+            rho0=np.ones_like(platform_x) * DENSITY * 100,
+            u0=np.zeros_like(platform_x),
+            v0=np.zeros_like(platform_x),
+            w0=np.zeros_like(platform_x)
         )
         
         # Create gripper particles (left and right)
@@ -133,7 +139,11 @@ class DeformableObjectWithGrippers(Application):
             h=np.ones_like(left_gripper_x) * self.hdx * self.dx,
             m=np.ones_like(left_gripper_x) * self.particle_mass * 10,
             rho=np.ones_like(left_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(left_gripper_x) * c0 * 10
+            cs=np.ones_like(left_gripper_x) * c0 * 10,    
+            rho0=np.ones_like(platform_x) * DENSITY * 100,
+            u0=np.zeros_like(platform_x),
+            v0=np.zeros_like(platform_x),
+            w0=np.zeros_like(platform_x)
         )
         
         right_gripper_x, right_gripper_y = G.get_2d_block(
@@ -150,9 +160,22 @@ class DeformableObjectWithGrippers(Application):
             h=np.ones_like(right_gripper_x) * self.hdx * self.dx,
             m=np.ones_like(right_gripper_x) * self.particle_mass * 10,
             rho=np.ones_like(right_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(right_gripper_x) * c0 * 10
+            cs=np.ones_like(right_gripper_x) * c0 * 10,
+            rho0=np.ones_like(platform_x) * DENSITY * 100,
+            u0=np.zeros_like(platform_x),
+            v0=np.zeros_like(platform_x),
+            w0=np.zeros_like(platform_x)
         )
         
+        object_pa.add_property('rho0')
+        object_pa.add_property('u0')
+        object_pa.add_property('v0')
+        object_pa.add_property('w0')
+        object_pa.rho0[:] = DENSITY
+        object_pa.u0[:] = 0.0
+        object_pa.v0[:] = 0.0
+        object_pa.w0[:] = 0.0
+
         return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
     
     def create_solver(self):
