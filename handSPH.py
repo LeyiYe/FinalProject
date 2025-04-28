@@ -68,9 +68,9 @@ class PandaHandSimulation(Application):
         ]
         return equations
     
-from pysph.tools import pysph_viewer
+#from pysph.tools import pysph_viewer
 
 if __name__ == '__main__':
     app = PandaHandSimulation()
     app.run()
-    pysph_viewer.viewer.show(app.solver)
+    #pysph_viewer.viewer.show(app.solver)
