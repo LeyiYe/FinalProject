@@ -58,7 +58,7 @@ class DeformableObjectWithGrippers(Application):
         c0 = np.sqrt(STIFFNESS/DENSITY)
         
         # Create the deformable object using get_particle_array_elastic_dynamics
-        x, y = G.get_3d_block(
+        x, y, z= G.get_3d_block(
             dx=self.dx, 
             length=OBJECT_WIDTH, 
             height=OBJECT_HEIGHT,
@@ -123,14 +123,13 @@ class DeformableObjectWithGrippers(Application):
         )
         
         # Create gripper particles (left and right)
-        left_gripper_x, left_gripper_y = G.get_3d_block(
+        left_gripper_x, left_gripper_y, left_gripper_z = G.get_3d_block(
             dx=self.dx,
             length=GRIPPER_WIDTH,
             height=GRIPPER_HEIGHT,
             depth=GRIPPER_WIDTH,
             center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
         )
-        left_gripper_z = np.zeros_like(left_gripper_x)
         
         left_gripper_pa = get_particle_array_rigid_body(
             name='left_gripper',
@@ -145,13 +144,13 @@ class DeformableObjectWithGrippers(Application):
             w0=np.zeros_like(left_gripper_x)
         )
         
-        right_gripper_x, right_gripper_y = G.get_2d_block(
+        right_gripper_x, right_gripper_y, right_gripper_z = G.get_3d_block(
             dx=self.dx,
             length=GRIPPER_WIDTH,
             height=GRIPPER_HEIGHT,
+            depth=GRIPPER_WIDTH,
             center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
         )
-        right_gripper_z = np.zeros_like(right_gripper_x)
         
         right_gripper_pa = get_particle_array_rigid_body(
             name='right_gripper',
@@ -267,7 +266,8 @@ class DeformableObjectWithGrippers(Application):
         left_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
         right_gripper.u[:] = -GRIPPER_SPEED if current_time < 1.0 else 0.0
         right_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
-        left_gripper.w[:] = GRIPPER_SPEED if condition else 0.0
+        left_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
+        right_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
         
         # Simple plasticity model - yield stress
         object_pa = self.particles['object']
