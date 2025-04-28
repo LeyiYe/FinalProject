@@ -8,7 +8,7 @@ from pysph.tools.geometry import get_3d_block
 
 def create_panda_hand(dx=0.05):
     # Palm (main body)
-    palm = get_3d_block(dx, length=0.3, height=0.2, width=0.15)
+    palm = get_3d_block(dx, length=0.3, height=0.2, depth=0.15)
     
     # Fingers (simplified as cylinders)
     fingers = []
