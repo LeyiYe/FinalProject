@@ -8,7 +8,7 @@ from pysph.sph.equation import Group
 from pysph.sph.basic_equations import (
     ContinuityEquation, XSPHCorrection, SummationDensity
 )
-
+from pysph.sph.boundary_equations import MonaghanBoundaryForce
 from pysph.sph.solid_mech.basic import (
     HookesDeviatoricStressRate,
     EnergyEquationWithStress,
@@ -32,21 +32,21 @@ GAMMA = 7.0        # Tait EOS exponent
 # YIELD_STRESS = 100 # Yield stress for plasticity
 
 # Simulation parameters
-DT = 1e-4
+DT = 1e-2
 TFINAL = 5.0
 DIM = 3
 
 # Domain and object dimensions
 BOX_WIDTH = 0.3
-BOX_HEIGHT = 0.01
+BOX_HEIGHT = 0.001
 BOX_DEPTH = 0.3
 PLATFORM_HEIGHT = 0.1
 OBJECT_WIDTH = 0.06
 OBJECT_HEIGHT = 0.05
 OBJECT_DEPTH = 0.05
-GRIPPER_WIDTH = 0.05
+GRIPPER_WIDTH = 0.025
 GRIPPER_HEIGHT = 0.1
-GRIPPER_SPEED = 0.5
+GRIPPER_SPEED = 0.1
 
 class DeformableObjectWithGrippers(Application):
     def __init__(self):
@@ -265,8 +265,13 @@ class DeformableObjectWithGrippers(Application):
             Group(equations=[
                 SummationDensity(dest='object', sources=['object'])
             ], real=False),
-            
-            # Stress and energy equations for rubber
+
+            Group(equations=[
+                MonaghanBoundaryForce(dest='object', sources=['platform']),
+                MonaghanBoundaryForce(dest='platform', sources=['object']),
+            ], real=True),
+        
+
             Group(equations=[
                 HookesDeviatoricStressRate(
                     dest='object',
