@@ -173,12 +173,6 @@ class DeformableObjectWithGrippers(Application):
         )
 
 
-        platform_pa.add_property('tx')
-        platform_pa.add_property('ty')
-        platform_pa.add_property('tz')
-        platform_pa.tx[:] = 0.0
-        platform_pa.ty[:] = 0.0
-        platform_pa.tz[:] = 0.0
     
         # Create gripper particles (left and right)
         left_gripper_x, left_gripper_y, left_gripper_z = G.get_3d_block(
@@ -229,6 +223,26 @@ class DeformableObjectWithGrippers(Application):
             dt_cfl=np.zeros_like(right_gripper_x),
             dt_force=np.zeros_like(right_gripper_x))
         
+        # After creating object_pa, add these properties:
+        for prop in ['nx', 'ny', 'nz', 'tx', 'ty', 'tz']:
+            object_pa.add_property(prop)
+            object_pa.get(prop)[:] = 0.0
+        
+        # Similarly for platform_pa:
+        for prop in ['nx', 'ny', 'nz', 'tx', 'ty', 'tz']:
+            platform_pa.add_property(prop)
+            platform_pa.get(prop)[:] = 0.0
+
+        platform_pa.ny[:] = 1.0
+
+        for gripper in [left_gripper_pa, right_gripper_pa]:
+            for prop in ['nx', 'ny', 'nz', 'tx', 'ty', 'tz']:
+                gripper.add_property(prop)
+                gripper.get(prop)[:] = 0.0
+            # Set normals for grippers (pointing inward toward the object)
+            left_gripper_pa.nx[:] = 1.0    # Points to the right
+            right_gripper_pa.nx[:] = -1.0   # Points to the left
+            
         for pa in [platform_pa, left_gripper_pa, right_gripper_pa]:
             pa.add_property('uhat')
             pa.add_property('vhat')
