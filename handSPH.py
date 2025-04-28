@@ -1,3 +1,4 @@
+import numpy as np
 from pysph.base.kernels import CubicSpline
 from pysph.solver.application import Application
 from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision, 
@@ -5,67 +6,126 @@ from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision,
                                   RK2StepRigidBody)
 from pysph.sph.integrator import EPECIntegrator
 from pysph.tools.geometry import get_3d_block
-import numpy as np
 
 def create_panda_hand(dx=0.05):
-    # Palm (main body)
-    palm = get_3d_block(dx, length=0.3, height=0.2, depth=0.15)
+    """Create a biologically accurate panda hand with two grippers."""
+    # Main palm/arm section
+    palm_x, palm_y, palm_z = get_3d_block(
+        dx, length=0.4, height=0.15, depth=0.2,
+        center=np.array([0.0, 0.0, 0.0])
+    )
     
-    # Fingers (simplified as cylinders)
-    fingers = np.array([])
-    for i in range(2):  # 5 fingers
-        finger = get_3d_block(dx, length=0.15, height=0.05, depth=0.05)
-        # Position each finger
-        finger.x += 0.15 + i*0.03
-        finger.y += 0.05 if i%2 else -0.05
-        fingers.append(finger)
+    # Two grippers (modified wrist bones)
+    gripper_params = [
+        # (x_offset, y_offset, length, height, depth)
+        (0.2, 0.1, 0.15, 0.07, 0.07),  # Upper gripper
+        (0.2, -0.1, 0.15, 0.07, 0.07)   # Lower gripper
+    ]
     
-    # Combine all parts
-    hand = palm
-    for finger in fingers:
-        hand.add_particles(finger)
+    grippers = []
+    for i, (x_off, y_off, l, h, d) in enumerate(gripper_params):
+        gx, gy, gz = get_3d_block(
+            dx, length=l, height=h, depth=d,
+            center=np.array([x_off, y_off, 0.0])
+        )
+        grippers.append((gx, gy, gz))
     
-    return hand
+    # Combine all components
+    x = np.concatenate([palm_x] + [g[0] for g in grippers])
+    y = np.concatenate([palm_y] + [g[1] for g in grippers])
+    z = np.concatenate([palm_z] + [g[2] for g in grippers])
+    
+    return x, y, z
 
 class PandaHandSimulation(Application):
     def initialize(self):
-        self.dx = 0.05
-        self.hdx = 1.2
-        self.ro = 1000.0  # density
-        self.rigid_body_mass = 1.0
+        # Simulation parameters
+        self.dx = 0.05          # Particle spacing
+        self.hdx = 1.2          # Ratio of h/dx
+        self.ro = 1000.0        # Reference density (kg/m^3)
+        self.rigid_body_mass = 2.0  # Total mass of hand (kg)
+        self.kn = 1e6           # Normal stiffness for collisions
+        self.mu = 0.5           # Friction coefficient (higher for better grip)
+        self.en = 0.1           # Low restitution (panda hands are not bouncy)
         
     def create_particles(self):
+        from pysph.base.utils import get_particle_array_rigid_body
+        
         # Create panda hand particles
-        hand = create_panda_hand(self.dx)
+        x, y, z = create_panda_hand(self.dx)
         
-        # Set rigid body properties
-        hand.add_property('body_id', type='int', data=1)  # all same body
-        hand.add_property('m', type='float', data=self.rigid_body_mass/len(hand.x))
-        hand.add_property('rho', type='float', data=self.ro)
+        # Create rigid body particle array
+        hand = get_particle_array_rigid_body(
+            x=x, y=y, z=z,
+            h=self.hdx*self.dx,
+            m=self.rigid_body_mass/len(x),
+            rho=self.ro,
+            name='hand'
+        )
         
-        return [hand]
+        # Set additional rigid body properties
+        hand.total_mass[0] = self.rigid_body_mass
+        hand.body_id[:] = 1  # All particles belong to body 1
+        
+        # Create a bamboo stalk for gripping
+        bamboo_x, bamboo_y, bamboo_z = get_3d_block(
+            self.dx, length=0.05, height=0.8, depth=0.05,
+            center=np.array([0.3, 0.0, 0.0])
+        )
+        bamboo = get_particle_array_rigid_body(
+            x=bamboo_x, y=bamboo_y, z=bamboo_z,
+            h=self.hdx*self.dx,
+            m=0.5/len(bamboo_x),  # Total mass of 0.5 kg
+            rho=self.ro,
+            name='bamboo'
+        )
+        bamboo.body_id[:] = 2
+        bamboo.total_mass[0] = np.sum(bamboo.m)
+        
+        return [hand, bamboo]
     
     def create_solver(self):
         kernel = CubicSpline(dim=3)
-        integrator = EPECIntegrator(hand=RK2StepRigidBody())
+        integrator = EPECIntegrator(hand=RK2StepRigidBody(), bamboo=RK2StepRigidBody())
         
         from pysph.solver.solver import Solver
-        solver = Solver(kernel=kernel, dim=3, integrator=integrator,
-                       dt=1e-4, tf=1.0, adaptive_timestep=True)
+        solver = Solver(
+            kernel=kernel,
+            dim=3,
+            integrator=integrator,
+            dt=1e-4,
+            tf=2.0,
+            adaptive_timestep=True
+        )
         return solver
     
     def create_equations(self):
         equations = [
-            BodyForce(dest='hand', sources=None),
+            # Gravity force
+            BodyForce(dest='hand', sources=None, gy=-9.81),
+            BodyForce(dest='bamboo', sources=None, gy=-9.81),
+            
+            # Rigid body collisions
             RigidBodyCollision(
-                dest='hand', 
-                sources=['hand'],
-                kn=1e5,       # Normal spring stiffness (increase for harder collisions)
-                mu=0.3,       # Friction coefficient
-                en=0.7        # Coefficient of restitution
+                dest='hand',
+                sources=['hand', 'bamboo'],
+                kn=self.kn,
+                mu=self.mu,
+                en=self.en
             ),
+            RigidBodyCollision(
+                dest='bamboo',
+                sources=['hand', 'bamboo'],
+                kn=self.kn,
+                mu=self.mu,
+                en=self.en
+            ),
+            
+            # Rigid body dynamics
             RigidBodyMoments(dest='hand', sources=None),
             RigidBodyMotion(dest='hand', sources=None),
+            RigidBodyMoments(dest='bamboo', sources=None),
+            RigidBodyMotion(dest='bamboo', sources=None),
         ]
         return equations
 
