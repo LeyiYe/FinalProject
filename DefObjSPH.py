@@ -161,8 +161,7 @@ class ElasticDeformableWithGripper(Application):
                 HookesDeviatoricStressRate(dest='object', sources=['object']),
                 MomentumEquationWithStress(
                     dest='object', 
-                    sources=['object', 'gripper'],
-                    alpha=1.0  # Damping coefficient
+                    sources=['object', 'gripper']
                 ),
                 MonaghanArtificialStress(dest='object', sources=['object'], eps=0.3),
                 XSPHCorrection(dest='object', sources=['object'], eps=0.5)
