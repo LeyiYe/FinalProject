@@ -7,51 +7,40 @@ from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision,
 from pysph.sph.integrator import EPECIntegrator
 from pysph.tools.geometry import get_3d_block
 
-def create_panda_hand(dx=0.05):  # Increased from 0.02 to 0.05
-    """Create a detailed Panda robotic hand model with fingers."""
+def create_panda_hand(dx=0.05):
+    """Create a Panda robotic hand with left and right grippers for grasping."""
     particles = {'x': [], 'y': [], 'z': []}
     
-    # 1. Create palm
-    palm_x, palm_y, palm_z = get_3d_block(
-        dx, length=0.15, height=0.1, depth=0.12,
+    # 1. Create main body (central rectangular block)
+    main_body_x, main_body_y, main_body_z = get_3d_block(
+        dx, 
+        length=0.15,   # Shorter length for the base
+        height=0.1,    # Height of main body
+        depth=0.2,     # Wider depth to accommodate side grippers
         center=np.array([0.0, 0.0, 0.0])
     )
-    particles['x'].append(palm_x)
-    particles['y'].append(palm_y)
-    particles['z'].append(palm_z)
+    particles['x'].append(main_body_x)
+    particles['y'].append(main_body_y)
+    particles['z'].append(main_body_z)
     
-    # 2. Create wrist/base (simplified)
-    wrist_x, wrist_y, wrist_z = get_3d_block(
-        dx, length=0.1, height=0.08, depth=0.08,
-        center=np.array([-0.08, 0.0, 0.0])
-    )
-    particles['x'].append(wrist_x)
-    particles['y'].append(wrist_y)
-    particles['z'].append(wrist_z)
-    
-    # 3. Create fingers (simplified)
-    finger_params = [
-        # (name, position, length)
-        ('index', [0.1, 0.06, 0.0], 0.12),
-        ('middle', [0.1, 0.0, 0.0], 0.14),
-        ('thumb', [0.05, 0.0, 0.06], 0.1)
+    # 2. Create two gripper blocks (left and right)
+    gripper_params = [
+        # (x_offset, z_offset, length, height, depth)
+        (0.0, 0.12, 0.2, 0.08, 0.05),  # Right gripper
+        (0.0, -0.12, 0.2, 0.08, 0.05)   # Left gripper
     ]
     
-    for name, pos, length in finger_params:
-        seg_x, seg_y, seg_z = get_3d_block(
-            dx, 
-            length=length,
-            height=0.04,
-            depth=0.04,
-            center=np.array([
-                pos[0] + length/2 if name != 'thumb' else pos[0],
-                pos[1],
-                pos[2]
-            ])
+    for x_off, z_off, l, h, d in gripper_params:
+        gx, gy, gz = get_3d_block(
+            dx,
+            length=l,
+            height=h,
+            depth=d,
+            center=np.array([x_off, 0.0, z_off])  # Centered vertically (y=0)
         )
-        particles['x'].append(seg_x)
-        particles['y'].append(seg_y)
-        particles['z'].append(seg_z)
+        particles['x'].append(gx)
+        particles['y'].append(gy)
+        particles['z'].append(gz)
     
     # Combine all components
     x = np.concatenate(particles['x'])
