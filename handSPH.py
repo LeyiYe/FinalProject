@@ -290,6 +290,7 @@ class DeformableObjectWithGrippers(Application):
                 MomentumEquation(
                     dest='object',
                     sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+                    c0=np.sqrt(STIFFNESS/DENSITY),
                     alpha=ALPHA,
                     beta=BETA,
                     gx=0.0,  # Changed from gz to gx for correct direction
