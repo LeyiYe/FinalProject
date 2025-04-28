@@ -108,10 +108,9 @@ class PandaHandSimulation(Application):
         hand.body_id[:] = 1  # All particles belong to body 1
         
         # Create a test object (cylinder shaped)
-        obj_x, obj_y, obj_z = get_3d_cylinder(
-            self.dx, length=0.2, radius=0.04,
-            center=np.array([0.2, 0.0, 0.0]),
-            axis='x'
+        obj_x, obj_y, obj_z = get_3d_hollow_cylinder(
+            self.dx, length=0.2, r=0.04,
+            center=np.array([0.2, 0.0, 0.0])
         )
         obj = get_particle_array_rigid_body(
             x=obj_x, y=obj_y, z=obj_z,
