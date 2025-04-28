@@ -174,7 +174,7 @@ class DeformableObjectWithGrippers(Application):
                     MomentumEquation(
                         dest='object', 
                         sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-                        alpha=ALPHA, beta=BETA, gz=-9.81
+                        alpha=ALPHA, beta=BETA, gz=-9.81, c0 = np.sqrt(STIFFNESS/DENSITY)
                     ),
                     XSPHCorrection(
                         dest='object', 
