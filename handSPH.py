@@ -171,6 +171,15 @@ class DeformableObjectWithGrippers(Application):
             dt_cfl=np.zeros_like(platform_x),
             dt_force=np.zeros_like(platform_x)
         )
+
+
+        platform_pa.add_property('tx')
+        platform_pa.add_property('ty')
+        platform_pa.add_property('tz')
+        platform_pa.tx[:] = 0.0
+        platform_pa.ty[:] = 0.0
+        platform_pa.tz[:] = 0.0
+    
         # Create gripper particles (left and right)
         left_gripper_x, left_gripper_y, left_gripper_z = G.get_3d_block(
             dx=self.dx,
