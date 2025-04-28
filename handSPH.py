@@ -8,6 +8,13 @@ from pysph.sph.equation import Group
 from pysph.sph.basic_equations import (
     ContinuityEquation, XSPHCorrection, SummationDensity
 )
+
+from pysph.sph.solid_mech.basic import (
+    HookeDeviatoricStressRate,
+    EnergyEquationWithStress,
+    MonaghanArtificialStress
+)
+
 from pysph.sph.wc.basic import TaitEOS, MomentumEquation
 from pysph.base.utils import get_particle_array_rigid_body
 from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
@@ -17,12 +24,12 @@ import numpy as np
 
 # Material properties for rubber-like material
 DENSITY = 1000.0  # kg/m^3
-STIFFNESS = 1e5    # Bulk modulus
-VISCOSITY = 0.1    # Viscosity coefficient
-ALPHA = 0.1        # Artificial viscosity coefficient
+STIFFNESS = 1e6    # Pa (Young's modulus, 1MPa is typical for soft rubber)
+# VISCOSITY = 0.1    # Viscosity coefficient
+ALPHA = 0.3       # Artificial viscosity coefficient
 BETA = 0.0         # Second artificial viscosity coefficient
 GAMMA = 7.0        # Tait EOS exponent
-YIELD_STRESS = 100 # Yield stress for plasticity
+# YIELD_STRESS = 100 # Yield stress for plasticity
 
 # Simulation parameters
 DT = 1e-4
@@ -34,11 +41,11 @@ BOX_WIDTH = 2.0
 BOX_HEIGHT = 2.0
 BOX_DEPTH = 2.0
 PLATFORM_HEIGHT = 0.1
-OBJECT_WIDTH = 0.5
-OBJECT_HEIGHT = 0.3
-OBJECT_DEPTH = 0.3
-GRIPPER_WIDTH = 0.06
-GRIPPER_HEIGHT = 0.05
+OBJECT_WIDTH = 0.1
+OBJECT_HEIGHT = 0.1
+OBJECT_DEPTH = 0.1
+GRIPPER_WIDTH = 0.3
+GRIPPER_HEIGHT = 0.3
 GRIPPER_SPEED = 0.5
 
 class DeformableObjectWithGrippers(Application):
@@ -241,64 +248,105 @@ class DeformableObjectWithGrippers(Application):
         )
         
         return solver
-    
 
 
     def create_equations(self):
         equations = [
-        Group(
-            equations=[
-                # This calculates velocity gradients (du, dv, dw)
-                VelocityGradient(
-                    dest='object', 
-                    sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-                    dim = 3
+            # Density summation
+            Group(equations=[
+                SummationDensity(dest='object', sources=['object'])
+            ], real=False),
+            
+            # Stress and energy equations for rubber
+            Group(equations=[
+                HookeDeviatoricStressRate(
+                    dest='object',
+                    sources=['object'],
+                    shear_modulus=STIFFNESS/(2*(1+0.3)),  # G = E/(2(1+ν))
+                    bulk_modulus=STIFFNESS                # K ≈ E for incompressible
                 ),
-            ],
-            real=True
-        ),
-
-            # Density summation for object
-            Group(
-                equations=[
-                    SummationDensity(dest='object', sources=['object', 'platform', 'left_gripper', 'right_gripper'])
-                ],
-                real=False
-            ),
+                EnergyEquationWithStress(
+                    dest='object',
+                    sources=['object']
+                ),
+                MonaghanArtificialStress(
+                    dest='object',
+                    sources=['object']
+                )
+            ], real=True),
             
-            # Tait equation of state for object
-            Group(
-                equations=[
-                    TaitEOS(
-                        dest='object', sources=None, 
-                        rho0=DENSITY, c0=np.sqrt(STIFFNESS/DENSITY), gamma=GAMMA
-                    )
-                ],
-                real=False
-            ),
-            
-            # Momentum equation with artificial viscosity
-            Group(
-                equations=[
-                    ContinuityEquation(
-                        dest='object', 
-                        sources=['object', 'platform', 'left_gripper', 'right_gripper']
-                    ),
-                    MomentumEquation(
-                        dest='object', 
-                        sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-                        alpha=ALPHA, beta=BETA, gz=-9.81, c0=np.sqrt(STIFFNESS/DENSITY)
-                    ),
-                    XSPHCorrection(
-                        dest='object', 
-                        sources=['object'], 
-                        eps=0.5
-                    )
-                ],
-                real=True
-            )
+            # Momentum equation with corrected gravity
+            Group(equations=[
+                MomentumEquation(
+                    dest='object',
+                    sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+                    alpha=ALPHA,
+                    beta=BETA,
+                    gx=0.0,  # Changed from gz to gx for correct direction
+                    gy=-9.81,  # Standard gravity in y-direction
+                    gz=0.0,
+                    tensile_correction=True
+                )
+            ], real=True)
         ]
         return equations
+
+
+    # def create_equations(self):
+        # equations = [
+        # Group(
+        #     equations=[
+        #         # This calculates velocity gradients (du, dv, dw)
+        #         VelocityGradient(
+        #             dest='object', 
+        #             sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+        #             dim = 3
+        #         ),
+        #     ],
+        #     real=True
+        # ),
+
+        #     # Density summation for object
+        #     Group(
+        #         equations=[
+        #             SummationDensity(dest='object', sources=['object', 'platform', 'left_gripper', 'right_gripper'])
+        #         ],
+        #         real=False
+        #     ),
+            
+        #     # Tait equation of state for object
+        #     Group(
+        #         equations=[
+        #             TaitEOS(
+        #                 dest='object', sources=None, 
+        #                 rho0=DENSITY, c0=np.sqrt(STIFFNESS/DENSITY), gamma=GAMMA
+        #             )
+        #         ],
+        #         real=False
+        #     ),
+            
+        #     # Momentum equation with artificial viscosity
+        #     Group(
+        #         equations=[
+        #             ContinuityEquation(
+        #                 dest='object', 
+        #                 sources=['object', 'platform', 'left_gripper', 'right_gripper']
+        #             ),
+        #             MomentumEquation(
+        #                 dest='object', 
+        #                 sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+        #                 alpha=ALPHA, beta=BETA, gy=-9.81, c0=np.sqrt(STIFFNESS/DENSITY)
+        #             ),
+        #             XSPHCorrection(
+        #                 dest='object', 
+        #                 sources=['object'], 
+        #                 eps=0.5
+        #             )
+        #         ],
+        #         real=True
+        #     )
+        # ]
+        # return equations
     
     def pre_step(self, solver):
         current_time = solver.t
