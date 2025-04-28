@@ -70,7 +70,6 @@ class PandaHandSimulation(Application):
         self.kn = 1e5           # Reduced stiffness (was 1e7)
         self.mu = 0.5           # Moderate friction
         self.en = 0.1           # Slightly higher restitution
-        self.damping = 0.1      # Added damping
         
     def create_particles(self):
         from pysph.base.utils import get_particle_array_rigid_body
@@ -134,7 +133,6 @@ class PandaHandSimulation(Application):
                 kn=self.kn,
                 mu=self.mu,
                 en=self.en,
-                damping=self.damping  # Added damping
             ),
             RigidBodyCollision(
                 dest='object',
@@ -142,7 +140,6 @@ class PandaHandSimulation(Application):
                 kn=self.kn,
                 mu=self.mu,
                 en=self.en,
-                damping=self.damping  # Added damping
             ),
             
             RigidBodyMoments(dest='hand', sources=None),
