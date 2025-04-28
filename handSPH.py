@@ -25,14 +25,16 @@ YIELD_STRESS = 100 # Yield stress for plasticity
 # Simulation parameters
 DT = 1e-4
 TFINAL = 5.0
-DIM = 2
+DIM = 3
 
 # Domain and object dimensions
 BOX_WIDTH = 2.0
 BOX_HEIGHT = 2.0
+BOX_DEPTH = 2.0
 PLATFORM_HEIGHT = 0.1
 OBJECT_WIDTH = 0.5
 OBJECT_HEIGHT = 0.3
+OBJECT_DEPTH = 0.3
 GRIPPER_WIDTH = 0.06
 GRIPPER_HEIGHT = 0.05
 GRIPPER_SPEED = 0.5
@@ -56,17 +58,18 @@ class DeformableObjectWithGrippers(Application):
         c0 = np.sqrt(STIFFNESS/DENSITY)
         
         # Create the deformable object using get_particle_array_elastic_dynamics
-        x, y = G.get_2d_block(
+        x, y = G.get_3d_block(
             dx=self.dx, 
             length=OBJECT_WIDTH, 
             height=OBJECT_HEIGHT,
+            width=OBJECT_DEPTH,
             center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2]
         )
         
         # Add some random perturbation
         x += np.random.uniform(-self.dx/4, self.dx/4, len(x))
         y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
-        z = np.zeros_like(x)  # For 2D simulation
+        z += np.random.uniform(-self.dx/4, self.dx/4, len(z))
         
         particle_mass = (self.dx**3) * DENSITY
 
@@ -85,31 +88,26 @@ class DeformableObjectWithGrippers(Application):
             rho=np.ones_like(x)*DENSITY,
             m=np.ones_like(x)*particle_mass,
             h=np.ones_like(x)*self.dx*self.hdx,
-            p=np.zeros_like(x),
             s00=np.zeros_like(x),
             s01=np.zeros_like(x),
             s02=np.zeros_like(x),
             s11=np.zeros_like(x),
             s12=np.zeros_like(x),
             s22=np.zeros_like(x),
-            dt_cfl=np.zeros_like(x),
-            dt_force=np.zeros_like(x),
-            au=np.zeros_like(x),
-            av=np.zeros_like(x),
-            aw=np.zeros_like(x),
-            cs=np.ones_like(x)*c0,  # Speed of sound
+            s10=np.zeros_like(x),
+            s20=np.zeros_like(x),
+            s21=np.zeros_like(x),
 
     
         )
         
         # Create platform particles
-        platform_x, platform_y = G.get_2d_block(
+        platform_x, platform_y, platform_z = G.get_3d_block(
             dx=self.dx,
             length=BOX_WIDTH,
             height=PLATFORM_HEIGHT,
-            center=[0, PLATFORM_HEIGHT/2]
-        )
-        platform_z = np.zeros_like(platform_x)
+            width=BOX_DEPTH,
+            center=[0, PLATFORM_HEIGHT/2, 0])
         
         platform_pa = get_particle_array_rigid_body(
             name='platform',
@@ -125,10 +123,11 @@ class DeformableObjectWithGrippers(Application):
         )
         
         # Create gripper particles (left and right)
-        left_gripper_x, left_gripper_y = G.get_2d_block(
+        left_gripper_x, left_gripper_y = G.get_3d_block(
             dx=self.dx,
             length=GRIPPER_WIDTH,
             height=GRIPPER_HEIGHT,
+            width=GRIPPER_WIDTH,
             center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
         )
         left_gripper_z = np.zeros_like(left_gripper_x)
@@ -140,10 +139,10 @@ class DeformableObjectWithGrippers(Application):
             m=np.ones_like(left_gripper_x) * self.particle_mass * 10,
             rho=np.ones_like(left_gripper_x) * DENSITY * 10,
             cs=np.ones_like(left_gripper_x) * c0 * 10,    
-            rho0=np.ones_like(platform_x) * DENSITY * 100,
-            u0=np.zeros_like(platform_x),
-            v0=np.zeros_like(platform_x),
-            w0=np.zeros_like(platform_x)
+            rho0=np.ones_like(left_gripper_x) * DENSITY * 100,
+            u0=np.zeros_like(left_gripper_x),
+            v0=np.zeros_like(left_gripper_x),
+            w0=np.zeros_like(left_gripper_x)
         )
         
         right_gripper_x, right_gripper_y = G.get_2d_block(
@@ -161,10 +160,10 @@ class DeformableObjectWithGrippers(Application):
             m=np.ones_like(right_gripper_x) * self.particle_mass * 10,
             rho=np.ones_like(right_gripper_x) * DENSITY * 10,
             cs=np.ones_like(right_gripper_x) * c0 * 10,
-            rho0=np.ones_like(platform_x) * DENSITY * 100,
-            u0=np.zeros_like(platform_x),
-            v0=np.zeros_like(platform_x),
-            w0=np.zeros_like(platform_x)
+            rho0=np.ones_like(right_gripper_x) * DENSITY * 100,
+            u0=np.zeros_like(right_gripper_x),
+            v0=np.zeros_like(right_gripper_x),
+            w0=np.zeros_like(right_gripper_x)
         )
         
         object_pa.add_property('rho0')
@@ -259,12 +258,16 @@ class DeformableObjectWithGrippers(Application):
         elif current_time < 3.0:
             left_gripper.y[:] += GRIPPER_SPEED * DT
             right_gripper.y[:] += GRIPPER_SPEED * DT
+        if current_time < 3.0:
+            left_gripper.z[:] += GRIPPER_SPEED * DT 
+            right_gripper.z[:] += GRIPPER_SPEED * DT
         
         # Update velocities for visualization
         left_gripper.u[:] = GRIPPER_SPEED if current_time < 1.0 else 0.0
         left_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
         right_gripper.u[:] = -GRIPPER_SPEED if current_time < 1.0 else 0.0
         right_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
+        left_gripper.w[:] = GRIPPER_SPEED if condition else 0.0
         
         # Simple plasticity model - yield stress
         object_pa = self.particles['object']
