@@ -90,8 +90,7 @@ class DeformableObjectWithGrippers(Application):
             constants={
                 'E': STIFFNESS,
                 'nu': 0.3,
-                'rho_ref': DENSITY,
-
+                'rho_ref': DENSITY
             },
             name='object',
             x=x, y=y, z=z,
@@ -145,11 +144,13 @@ class DeformableObjectWithGrippers(Application):
         object_pa.what[:] = object_pa.w[:]
         object_pa.gradvhat[:] = 0.0
 
+        platform_dx=self.dx*2
+
         # Create platform particles
         platform_x, platform_y, platform_z = G.get_3d_block(
-            dx=self.dx,
+            dx=platform_dx,
             length=BOX_WIDTH,
-            height=PLATFORM_HEIGHT,
+            height=0.05,
             depth=BOX_DEPTH,
             center=[0, PLATFORM_HEIGHT/2, 0]
         )
@@ -269,7 +270,7 @@ class DeformableObjectWithGrippers(Application):
             Group(equations=[
                 HookesDeviatoricStressRate(
                     dest='object',
-                    sources=['object']  
+                    sources=['object']
                 ),
                 EnergyEquationWithStress(
                     dest='object',
