@@ -49,85 +49,104 @@ class DeformableObjectWithGrippers(Application):
         self.hdx = 1.2
         self.dx = OBJECT_WIDTH / self.nx
     
-    def create_particles(self):
-        # Create the deformable object
-        x, y = G.get_2d_block(
-            dx=self.dx, 
-            length=OBJECT_WIDTH, 
-            height=OBJECT_HEIGHT,
-            center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2]
-        )
-        
-        # Add some random perturbation
-        x += np.random.uniform(-self.dx/4, self.dx/4, len(x))
-        y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
-        
-        # Create particle array for the object
-        object_pa = get_particle_array(
-            name='object',
-            x=x, y=y,
-            h=np.ones_like(x) * self.hdx * self.dx,
-            m=np.ones_like(x) * DENSITY * self.dx**2,
-            rho=np.ones_like(x) * DENSITY,
-            cs=np.ones_like(x) * np.sqrt(STIFFNESS/DENSITY),
-            e=np.ones_like(x),
-            arho=np.zeros_like(x)
-        )
-        
-        # Create platform particles
-        platform_x, platform_y = G.get_2d_block(
-            dx=self.dx,
-            length=BOX_WIDTH,
-            height=PLATFORM_HEIGHT,
-            center=[0, PLATFORM_HEIGHT/2]
-        )
-        
-        platform_pa = get_particle_array(
-            name='platform',
-            x=platform_x, y=platform_y,
-            h=np.ones_like(platform_x) * self.hdx * self.dx,
-            m=np.ones_like(platform_x) * DENSITY * self.dx**2,
-            rho=np.ones_like(platform_x) * DENSITY * 100,  # Make platform dense
-            cs=np.ones_like(platform_x) * np.sqrt(STIFFNESS/DENSITY)*10,
-            arho=np.zeros_like(platform_x)
-        )
-        
-        # Create gripper particles (left and right)
-        left_gripper_x, left_gripper_y = G.get_2d_block(
-            dx=self.dx,
-            length=GRIPPER_WIDTH,
-            height=GRIPPER_HEIGHT,
-            center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
-        )
-        
-        right_gripper_x, right_gripper_y = G.get_2d_block(
-            dx=self.dx,
-            length=GRIPPER_WIDTH,
-            height=GRIPPER_HEIGHT,
-            center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
-        )
-        
-        left_gripper_pa = get_particle_array(
-            name='left_gripper',
-            x=left_gripper_x, y=left_gripper_y,
-            h=np.ones_like(left_gripper_x) * self.hdx * self.dx,
-            m=np.ones_like(left_gripper_x) * DENSITY * self.dx**2 * 10,  # Make grippers heavier
-            rho=np.ones_like(left_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(left_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10,
-            arho=np.zeros_like(left_gripper_x)
-        )
-        
-        right_gripper_pa = get_particle_array(
-            name='right_gripper',
-            x=right_gripper_x, y=right_gripper_y,
-            h=np.ones_like(right_gripper_x) * self.hdx * self.dx,
-            m=np.ones_like(right_gripper_x) * DENSITY * self.dx**2 * 10,
-            rho=np.ones_like(right_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(right_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10,
-            arho=np.zeros_like(left_gripper_x)
-        )
-        
-        return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
+def create_particles(self):
+    # First calculate the reference speed of sound
+    c0 = np.sqrt(STIFFNESS/DENSITY)
+    
+    # Create the deformable object using get_particle_array
+    x, y = G.get_2d_block(
+        dx=self.dx, 
+        length=OBJECT_WIDTH, 
+        height=OBJECT_HEIGHT,
+        center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2]
+    )
+    
+    # Add some random perturbation
+    x += np.random.uniform(-self.dx/4, self.dx/4, len(x))
+    y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
+    
+    # Create particle array for the object with all required properties
+    object_pa = get_particle_array(
+        name='object',
+        x=x, y=y,
+        h=np.ones_like(x) * self.hdx * self.dx,
+        m=np.ones_like(x) * DENSITY * self.dx**2,
+        rho=np.ones_like(x) * DENSITY,
+        cs=np.ones_like(x) * c0,
+        e=np.ones_like(x),
+        arho=np.zeros_like(x),
+        au=np.zeros_like(x),  # acceleration x
+        av=np.zeros_like(x),  # acceleration y
+        dt_cfl=np.zeros_like(x),  # for time step calculation
+        dt_force=np.zeros_like(x)  # for time step calculation
+    )
+    
+    # Create platform particles
+    platform_x, platform_y = G.get_2d_block(
+        dx=self.dx,
+        length=BOX_WIDTH,
+        height=PLATFORM_HEIGHT,
+        center=[0, PLATFORM_HEIGHT/2]
+    )
+    
+    platform_pa = get_particle_array(
+        name='platform',
+        x=platform_x, y=platform_y,
+        h=np.ones_like(platform_x) * self.hdx * self.dx,
+        m=np.ones_like(platform_x) * DENSITY * self.dx**2,
+        rho=np.ones_like(platform_x) * DENSITY * 100,  # Make platform dense
+        cs=np.ones_like(platform_x) * c0 * 10,
+        arho=np.zeros_like(platform_x),
+        au=np.zeros_like(platform_x),
+        av=np.zeros_like(platform_x),
+        dt_cfl=np.zeros_like(platform_x),
+        dt_force=np.zeros_like(platform_x)
+    )
+    
+    # Create gripper particles (left and right)
+    left_gripper_x, left_gripper_y = G.get_2d_block(
+        dx=self.dx,
+        length=GRIPPER_WIDTH,
+        height=GRIPPER_HEIGHT,
+        center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
+    )
+    
+    right_gripper_x, right_gripper_y = G.get_2d_block(
+        dx=self.dx,
+        length=GRIPPER_WIDTH,
+        height=GRIPPER_HEIGHT,
+        center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2]
+    )
+    
+    left_gripper_pa = get_particle_array(
+        name='left_gripper',
+        x=left_gripper_x, y=left_gripper_y,
+        h=np.ones_like(left_gripper_x) * self.hdx * self.dx,
+        m=np.ones_like(left_gripper_x) * DENSITY * self.dx**2 * 10,  # Make grippers heavier
+        rho=np.ones_like(left_gripper_x) * DENSITY * 10,
+        cs=np.ones_like(left_gripper_x) * c0 * 10,
+        arho=np.zeros_like(left_gripper_x),
+        au=np.zeros_like(left_gripper_x),
+        av=np.zeros_like(left_gripper_x),
+        dt_cfl=np.zeros_like(left_gripper_x),
+        dt_force=np.zeros_like(left_gripper_x)
+    )
+    
+    right_gripper_pa = get_particle_array(
+        name='right_gripper',
+        x=right_gripper_x, y=right_gripper_y,
+        h=np.ones_like(right_gripper_x) * self.hdx * self.dx,
+        m=np.ones_like(right_gripper_x) * DENSITY * self.dx**2 * 10,
+        rho=np.ones_like(right_gripper_x) * DENSITY * 10,
+        cs=np.ones_like(right_gripper_x) * c0 * 10,
+        arho=np.zeros_like(right_gripper_x),
+        au=np.zeros_like(right_gripper_x),
+        av=np.zeros_like(right_gripper_x),
+        dt_cfl=np.zeros_like(right_gripper_x),
+        dt_force=np.zeros_like(right_gripper_x)
+    )
+    
+    return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
     
     def create_solver(self):
         kernel = CubicSpline(dim=DIM)
