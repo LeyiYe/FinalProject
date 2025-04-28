@@ -136,8 +136,6 @@ class DeformableObjectWithGrippers(Application):
             object_pa.add_property(prop)
             object_pa.get(prop)[:] = 0.0
 
-        object_pa.add_constant('G', STIFFNESS/(2*(1+0.3)))
-
         object_pa.add_property('uhat')
         object_pa.add_property('vhat')
         object_pa.add_property('what')
