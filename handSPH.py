@@ -73,9 +73,9 @@ class DeformableObjectWithGrippers(Application):
         # Create elastic object particle array
         object_pa = get_particle_array_elastic_dynamics(
             constants={
-                'E': 1e5,       # Young's modulus (Pa)
-                'nu': 0.3,     # Poisson's ratio
-                'rho_ref': DENSITY # Reference density (kg/m³)
+                'E': STIFFNESS,
+                'nu': 0.3,
+                'rho_ref': DENSITY
             },
             name='object',
             x=x, y=y, z=z,
@@ -84,15 +84,20 @@ class DeformableObjectWithGrippers(Application):
             w=np.zeros_like(x),
             rho=np.ones_like(x)*DENSITY,
             m=np.ones_like(x)*particle_mass,
-            h=np.ones_like(x)*self.dx*1.2,
+            h=np.ones_like(x)*self.dx*self.hdx,
             p=np.zeros_like(x),
-            # Initialize stress tensor components to zero
             s00=np.zeros_like(x),
             s01=np.zeros_like(x),
             s02=np.zeros_like(x),
             s11=np.zeros_like(x),
             s12=np.zeros_like(x),
-            s22=np.zeros_like(x)
+            s22=np.zeros_like(x),
+            dt_cfl=np.zeros_like(x),
+            dt_force=np.zeros_like(x),
+            au=np.zeros_like(x),
+            av=np.zeros_like(x),
+            aw=np.zeros_like(x),
+            cs=np.ones_like(x)*c0  # Speed of sound
         )
         
         # Create platform particles
