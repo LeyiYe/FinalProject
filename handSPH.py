@@ -235,7 +235,8 @@ class DeformableObjectWithGrippers(Application):
                 # This calculates velocity gradients (du, dv, dw)
                 VelocityGradient(
                     dest='object', 
-                    sources=['object', 'platform', 'left_gripper', 'right_gripper']
+                    sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+                    dim = 3
                 ),
             ],
             real=True
