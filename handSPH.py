@@ -5,7 +5,7 @@ from pysph.sph.rigid_body import (BodyForce, RigidBodyCollision,
                                   RigidBodyMoments, RigidBodyMotion,
                                   RK2StepRigidBody)
 from pysph.sph.integrator import EPECIntegrator
-from pysph.tools.geometry import get_3d_block, get_3d_cylinder, get_3d_sphere
+from pysph.tools.geometry import get_3d_block
 
 def create_panda_hand(dx=0.05):  # Increased from 0.02 to 0.05
     """Create a detailed Panda robotic hand model with fingers."""
