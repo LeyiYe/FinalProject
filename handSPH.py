@@ -8,8 +8,8 @@ from pysph.sph.basic_equations import (
     ContinuityEquation, XSPHCorrection, SummationDensity
 )
 from pysph.sph.wc.basic import TaitEOS, MomentumEquation
-from pysph.base.utils import (get_particle_array, get_particle_array_rigid_body, 
-                             get_particle_array_elastic_dynamics)
+from pysph.base.utils import (get_particle_array, get_particle_array_rigid_body)
+from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
 from pysph.tools import geometry as G
 import numpy as np
 
