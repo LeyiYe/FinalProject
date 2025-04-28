@@ -121,6 +121,14 @@ class DeformableObjectWithGrippers(Application):
             v0=np.zeros_like(x),
             w0=np.zeros_like(x)
         )
+        object_pa.add_property('uhat')
+        object_pa.add_property('vhat')
+        object_pa.add_property('what')
+        object_pa.add_property('gradvhat', stride=9)
+        object_pa.uhat[:] = object_pa.u[:]
+        object_pa.vhat[:] = object_pa.v[:]
+        object_pa.what[:] = object_pa.w[:]
+        object_pa.gradvhat[:] = 0.0
 
         # Create platform particles
         platform_x, platform_y, platform_z = G.get_3d_block(
@@ -195,6 +203,14 @@ class DeformableObjectWithGrippers(Application):
             # Time step properties
             dt_cfl=np.zeros_like(right_gripper_x),
             dt_force=np.zeros_like(right_gripper_x))
+        
+        for pa in [platform_pa, left_gripper_pa, right_gripper_pa]:
+            pa.add_property('uhat')
+            pa.add_property('vhat')
+            pa.add_property('what')
+            pa.uhat[:] = pa.u[:]
+            pa.vhat[:] = pa.v[:]
+            pa.what[:] = pa.w[:]
         
         self.particle_arrays['object'] = object_pa
         self.particle_arrays['platform'] = platform_pa
