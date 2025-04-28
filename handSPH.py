@@ -2,7 +2,7 @@ from pysph.base.kernels import CubicSpline
 from pysph.solver.application import Application
 from pysph.solver.solver import Solver
 from pysph.sph.integrator import EPECIntegrator
-from pysph.sph.integrator_step import WCSPHStep
+from pysph.sph.integrator_step import WCSPHStep, SolidMechStep
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import (
     ContinuityEquation, XSPHCorrection, SummationDensity
@@ -195,8 +195,8 @@ class DeformableObjectWithGrippers(Application):
     def create_solver(self):
         kernel = CubicSpline(dim=DIM)
         
-        integrator = EPECIntegrator(object=WCSPHStep(), platform=WCSPHStep(),
-                                  left_gripper=WCSPHStep(), right_gripper=WCSPHStep())
+        integrator = EPECIntegrator(object=SolidMechStep(), platform=SolidMechStep(),
+                                  left_gripper=SolidMechStep(), right_gripper=SolidMechStep())
         
         solver = Solver(
             kernel=kernel,
