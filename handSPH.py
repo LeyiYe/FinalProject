@@ -70,7 +70,8 @@ class DeformableObjectWithGrippers(Application):
             m=np.ones_like(x) * DENSITY * self.dx**2,
             rho=np.ones_like(x) * DENSITY,
             cs=np.ones_like(x) * np.sqrt(STIFFNESS/DENSITY),
-            e=np.ones_like(x)
+            e=np.ones_like(x),
+            arho=np.zeros_like(x)
         )
         
         # Create platform particles
@@ -87,7 +88,8 @@ class DeformableObjectWithGrippers(Application):
             h=np.ones_like(platform_x) * self.hdx * self.dx,
             m=np.ones_like(platform_x) * DENSITY * self.dx**2,
             rho=np.ones_like(platform_x) * DENSITY * 100,  # Make platform dense
-            cs=np.ones_like(platform_x) * np.sqrt(STIFFNESS/DENSITY)*10
+            cs=np.ones_like(platform_x) * np.sqrt(STIFFNESS/DENSITY)*10,
+            arho=np.zeros_like(platform_x)
         )
         
         # Create gripper particles (left and right)
@@ -111,7 +113,8 @@ class DeformableObjectWithGrippers(Application):
             h=np.ones_like(left_gripper_x) * self.hdx * self.dx,
             m=np.ones_like(left_gripper_x) * DENSITY * self.dx**2 * 10,  # Make grippers heavier
             rho=np.ones_like(left_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(left_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10
+            cs=np.ones_like(left_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10,
+            arho=np.zeros_like(left_gripper_x)
         )
         
         right_gripper_pa = get_particle_array(
@@ -120,7 +123,8 @@ class DeformableObjectWithGrippers(Application):
             h=np.ones_like(right_gripper_x) * self.hdx * self.dx,
             m=np.ones_like(right_gripper_x) * DENSITY * self.dx**2 * 10,
             rho=np.ones_like(right_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(right_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10
+            cs=np.ones_like(right_gripper_x) * np.sqrt(STIFFNESS/DENSITY)*10,
+            arho=np.zeros_like(left_gripper_x)
         )
         
         return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
