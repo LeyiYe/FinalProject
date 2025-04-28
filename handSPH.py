@@ -100,7 +100,19 @@ class DeformableObjectWithGrippers(Application):
 
     
         )
-        
+        object_pa.add_property('dt_cfl')
+        object_pa.add_property('dt_force')
+        object_pa.dt_cfl[:] = 0.0  # Initialize to zero
+        object_pa.dt_force[:] = 0.0
+        object_pa.add_property('rho0')
+        object_pa.add_property('u0')
+        object_pa.add_property('v0')
+        object_pa.add_property('w0')
+        object_pa.rho0[:] = DENSITY
+        object_pa.u0[:] = 0.0
+        object_pa.v0[:] = 0.0
+        object_pa.w0[:] = 0.0
+
         # Create platform particles
         platform_x, platform_y, platform_z = G.get_3d_block(
             dx=self.dx,
@@ -121,6 +133,10 @@ class DeformableObjectWithGrippers(Application):
             v0=np.zeros_like(platform_x),
             w0=np.zeros_like(platform_x)
         )
+        platform_pa.add_property('dt_cfl')
+        platform_pa.add_property('dt_force')
+        platform_pa.dt_cfl[:] = 0.0
+        platform_pa.dt_force[:] = 0.0
         
         # Create gripper particles (left and right)
         left_gripper_x, left_gripper_y, left_gripper_z = G.get_3d_block(
@@ -143,6 +159,10 @@ class DeformableObjectWithGrippers(Application):
             v0=np.zeros_like(left_gripper_x),
             w0=np.zeros_like(left_gripper_x)
         )
+        left_gripper_pa.add_property('dt_cfl')
+        left_gripper_pa.add_property('dt_force')
+        left_gripper_pa.dt_cfl[:] = 0.0
+        left_gripper_pa.dt_force[:] = 0.0
         
         right_gripper_x, right_gripper_y, right_gripper_z = G.get_3d_block(
             dx=self.dx,
@@ -165,14 +185,10 @@ class DeformableObjectWithGrippers(Application):
             w0=np.zeros_like(right_gripper_x)
         )
         
-        object_pa.add_property('rho0')
-        object_pa.add_property('u0')
-        object_pa.add_property('v0')
-        object_pa.add_property('w0')
-        object_pa.rho0[:] = DENSITY
-        object_pa.u0[:] = 0.0
-        object_pa.v0[:] = 0.0
-        object_pa.w0[:] = 0.0
+        right_gripper_pa.add_property('dt_cfl')
+        right_gripper_pa.add_property('dt_force')
+        right_gripper_pa.dt_cfl[:] = 0.0
+        right_gripper_pa.dt_force[:] = 0.0
 
         return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
     
