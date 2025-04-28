@@ -14,8 +14,8 @@ def create_panda_hand(dx=0.05):
     # 1. Create main body (central rectangular block)
     main_body_x, main_body_y, main_body_z = get_3d_block(
         dx, 
-        length=0.15,   # Shorter length for the base
-        height=0.1,    # Height of main body
+        length=0.1,   # Shorter length for the base
+        height=0.15,    # Height of main body
         depth=0.2,     # Wider depth to accommodate side grippers
         center=np.array([0.0, 0.0, 0.0])
     )
