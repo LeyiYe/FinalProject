@@ -41,6 +41,10 @@ GRIPPER_HEIGHT = 0.05
 GRIPPER_SPEED = 0.5
 
 class DeformableObjectWithGrippers(Application):
+    def __init__(self):
+        super().__init__()
+        self.particle_arrays = {}
+
     def add_user_options(self, group):
         group.add_argument(
             "--nx", action="store", type=int, dest="nx", default=20,
@@ -190,9 +194,15 @@ class DeformableObjectWithGrippers(Application):
             # Time step properties
             dt_cfl=np.zeros_like(right_gripper_x),
             dt_force=np.zeros_like(right_gripper_x))
+        
+        self.particle_arrays['object'] = object_pa
+        self.particle_arrays['platform'] = platform_pa
+        self.particle_arrays['left_gripper'] = left_gripper_pa
+        self.particle_arrays['right_gripper'] = right_gripper_pa
 
-        return [object_pa, platform_pa, left_gripper_pa, right_gripper_pa]
+        return list(self.particle_arrays.values())
     
+
     def create_solver(self):
         kernel = CubicSpline(dim=DIM)
         
@@ -263,8 +273,8 @@ class DeformableObjectWithGrippers(Application):
         current_time = solver.t
         
         # Control gripper movement
-        left_gripper = self.particles['left_gripper']
-        right_gripper = self.particles['right_gripper']
+        left_gripper = self.particle_arrays['left_gripper']
+        right_gripper = self.particle_arrays['right_gripper']
         
         # First phase: Close grippers (0-1s)
         if current_time < 1.0:
@@ -287,7 +297,7 @@ class DeformableObjectWithGrippers(Application):
         right_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
         
         # Simple plasticity model
-        object_pa = self.particles['object']
+        object_pa = self.particle_arrays['object']
         strain = np.sqrt(object_pa.du**2 + object_pa.dv**2 + object_pa.dw**2) / STIFFNESS
         plastic = strain > YIELD_STRESS
         if np.any(plastic):
