@@ -90,7 +90,8 @@ class DeformableObjectWithGrippers(Application):
             constants={
                 'E': STIFFNESS,
                 'nu': 0.3,
-                'rho_ref': DENSITY
+                'rho_ref': DENSITY,
+
             },
             name='object',
             x=x, y=y, z=z,
@@ -128,6 +129,15 @@ class DeformableObjectWithGrippers(Application):
             v0=np.zeros_like(x),
             w0=np.zeros_like(x)
         )
+        props = ['v00','v01','v02','v10','v11','v12','v20','v21','v22',
+            'as00','as01','as02','as11','as12','as22']
+        
+        for prop in props:
+            object_pa.add_property(prop)
+            object_pa.get(prop)[:] = 0.0
+
+        object_pa.add_constant('G', STIFFNESS/(2*(1+0.3)))
+
         object_pa.add_property('uhat')
         object_pa.add_property('vhat')
         object_pa.add_property('what')
@@ -261,13 +271,13 @@ class DeformableObjectWithGrippers(Application):
             Group(equations=[
                 HookesDeviatoricStressRate(
                     dest='object',
-                    sources=['object'],
-                    shear_modulus=STIFFNESS/(2*(1+0.3)),  # G = E/(2(1+ν))
-                    bulk_modulus=STIFFNESS                # K ≈ E for incompressible
+                    sources=['object']  
                 ),
                 EnergyEquationWithStress(
                     dest='object',
-                    sources=['object']
+                    sources=['object'],
+                    alpha=ALPHA,
+                    beta=BETA,
                 ),
                 MonaghanArtificialStress(
                     dest='object',
