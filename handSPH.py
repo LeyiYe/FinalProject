@@ -68,28 +68,32 @@ class DeformableObjectWithGrippers(Application):
         y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
         z = np.zeros_like(x)  # For 2D simulation
         
+        particle_mass = (dx**3) * DENSITY
+
         # Create elastic object particle array
         object_pa = get_particle_array_elastic_dynamics(
+            constants={
+                'E': 1e5,       # Young's modulus (Pa)
+                'nu': 0.3,     # Poisson's ratio
+                'rho_ref': DENSITY # Reference density (kg/m³)
+            },
             name='object',
             x=x, y=y, z=z,
-            h=np.ones_like(x) * self.hdx * self.dx,
-            m=np.ones_like(x) * self.particle_mass,
-            rho=np.ones_like(x) * DENSITY,
-            constants={
-                'E': STIFFNESS,  # Young's modulus (Pa)
-                'nu': 0.3,       # Poisson's ratio
-                'rho0': DENSITY  # Reference density
-            }
+            u=np.zeros_like(x),
+            v=np.zeros_like(x),
+            w=np.zeros_like(x),
+            rho=np.ones_like(x)*DENSITY,
+            m=np.ones_like(x)*particle_mass,
+            h=np.ones_like(x)*dx*1.2,
+            p=np.zeros_like(x),
+            # Initialize stress tensor components to zero
+            s00=np.zeros_like(x),
+            s01=np.zeros_like(x),
+            s02=np.zeros_like(x),
+            s11=np.zeros_like(x),
+            s12=np.zeros_like(x),
+            s22=np.zeros_like(x)
         )
-        
-        # Initialize additional required properties
-        object_pa.add_property('arho')
-        object_pa.add_property('au')
-        object_pa.add_property('av')
-        object_pa.add_property('dt_cfl')
-        object_pa.add_property('dt_force')
-        object_pa.add_property('cs')
-        object_pa.cs[:] = c0
         
         # Create platform particles
         platform_x, platform_y = G.get_2d_block(
