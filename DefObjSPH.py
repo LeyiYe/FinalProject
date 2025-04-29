@@ -129,8 +129,7 @@ class GraspDeformableBlock(Application):
             if 'arho' not in arr.properties:
                 arr.add_property('arho')
             arr.arho[:] = 1.0/self.rho0
-        return [block, platform, gripper1, gripper2] [block, platform, gripper1, gripper2]
-
+        return [block, platform, gripper1, gripper2] 
     def create_scheme(self):
         # ElasticSolidsScheme expects (elastic_solids, solids, dim)
         elastic = ElasticSolidsScheme(
