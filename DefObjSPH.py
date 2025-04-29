@@ -18,7 +18,7 @@ class GraspDeformableBlock(Application):
         self.dx = 0.02                 # particle spacing
         self.hdx = 1.2                # smoothing length factor
         self.rho0 = 1000.0            # reference density
-        self.E = 1e5                  # Young's modulus (Pa)
+        self.E = 1e7                  # Young's modulus (Pa)
         self.nu = 0.49                # Poisson ratio
         self.c0 = 50.0                # speed of sound
 
@@ -148,10 +148,10 @@ class GraspDeformableBlock(Application):
         for gr in (g1, g2):
             gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
         # clamp block at floor but retain SPH deformation
-        zmin = self.platform_size[2] + 0.5*self.dx
-        block.z[:] = np.maximum(block.z, zmin)
-        block.w[:] = np.where(block.z<=zmin, np.maximum(block.w,0), block.w)
-        
+        # zmin = self.platform_size[2] + 0.5*self.dx
+        # block.z[:] = np.maximum(block.z, zmin)
+        # block.w[:] = np.where(block.z<=zmin, np.maximum(block.w,0), block.w)
+
 if __name__=='__main__':
     app = GraspDeformableBlock()
     app.run()
