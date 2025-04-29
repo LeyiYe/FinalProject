@@ -165,19 +165,19 @@ class GraspDeformableBlock(Application):
         for gr in (g1, g2):
             gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
         # clamp block at floor but retain SPH deformation
-        zmin = self.platform_size[2] + 0.5*self.dx
-        mask = block.z < zmin
-        if mask.any():
-            block.z[mask] = zmin
-            # zero translational velocity
-            block.u[mask] = block.v[mask] = block.w[mask] = 0.0
-            # wipe elastic strain & stress so they don't accumulate
-            for p in ('e','r','s','as'):
-                for i in range(3):
-                    for j in range(3):
-                        name = f'{p}{i}{j}' if i<=j else None
-                        if name and name in block.properties:
-                            block.get(name)[mask] = 0.0
+        # zmin = self.platform_size[2] + 0.5*self.dx
+        # mask = block.z < zmin
+        # if mask.any():
+        #     block.z[mask] = zmin
+        #     # zero translational velocity
+        #     block.u[mask] = block.v[mask] = block.w[mask] = 0.0
+        #     # wipe elastic strain & stress so they don't accumulate
+        #     for p in ('e','r','s','as'):
+        #         for i in range(3):
+        #             for j in range(3):
+        #                 name = f'{p}{i}{j}' if i<=j else None
+        #                 if name and name in block.properties:
+        #                     block.get(name)[mask] = 0.0
 if __name__=='__main__':
     app = GraspDeformableBlock()
     app.run()
