@@ -148,10 +148,11 @@ class GraspDeformableBlock(Application):
         for gr in (g1, g2):
             gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
         # clamp block at floor but retain SPH deformation
-        # zmin = self.platform_size[2] + 0.5*self.dx
-        # block.z[:] = np.maximum(block.z, zmin)
-        # block.w[:] = np.where(block.z<=zmin, np.maximum(block.w,0), block.w)
-
+        floor_z = self.platform_size[2]
+        mask = block.z < floor_z + 0.5*self.dx
+        if mask.any():
+            block.z[mask] = floor_z + 0.5*self.dx
+            block.w[mask] = 0.0
 if __name__=='__main__':
     app = GraspDeformableBlock()
     app.run()
