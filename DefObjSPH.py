@@ -5,6 +5,9 @@ from pysph.sph.scheme import SchemeChooser
 from pysph.sph.scheme import ElasticSolidScheme
 from pysph.sph.equation import Group, Gravity
 
+import os
+os.environ['PYSPH_DISABLE_CYTHON'] = '1'  # Disable plotting
+
 class GraspDeformableBlock(Application):
     def initialize(self):
         # Simulation parameters
