@@ -60,7 +60,7 @@ class GraspDeformableBlock(Application):
         # Additional solid fields (required by scheme)
         for prop in ['eo', 'ae', 'arho','as12', 'as22', 'as02', 'as11', 'as01', 'as00', 'ay', 'ax', 'az',
                     'e', 'e0', 'rho0', 's000', 's010', 's020', 's110', 's120', 's220', 'u0', 'v0',
-                    'w0', 'x0', 'y0', 'z0']:
+                    'w0', 'x0', 'y0', 'z0', 'cs']:
             block.add_property(prop)
         block.arho[:] = 1.0/self.rho0
 
@@ -74,16 +74,18 @@ class GraspDeformableBlock(Application):
                 name=name, x=x, y=y, z=z,
                 h=0.02*2.0, m=1e12, rho=self.rho0,
                 is_boundary=1, is_rigid=1)
+            pa.add_property('arho', type='double', default=1.0/self.rho0)
+            pa.add_property('cs', type='double', default=self.c0)
+            pa.add_property('z0', type='double', default=pa.z.copy())
+
             # Mirror same extra fields
-            for arr in (pa,):
-                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
-                arr.add_property('cs');   arr.cs[:]   = self.c0
-                for i in range(self.dim):
-                    for j in range(i, self.dim):
-                        arr.add_property(f'r{i}{j}'); arr.add_property(f's{i}{j}')
-                    for j in range(self.dim):
-                        arr.add_property(f'v{i}{j}')
-                arr.add_property('wdeltap'); arr.add_property('n')
+            for i in range(self.dim):
+                for j in range(i, self.dim):
+                    pa.add_property(f'r{i}{j}')
+                    pa.add_property(f's{i}{j}')
+                for j in range(self.dim):
+                    pa.add_property(f'v{i}{j}')
+            pa.add_property('wdeltap'); pa.add_property('n')
             particles.append(pa)
             return pa
         platform = make_rigid('platform', (0,0,self.platform_size[2]/2), self.platform_size)
@@ -167,20 +169,7 @@ class GraspDeformableBlock(Application):
         for gr in (g1, g2):
             gr.x += gr.u * dt; gr.y += gr.v*dt; gr.z += gr.w*dt
             gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
-        # clamp block at floor but retain SPH deformation
-        # zmin = self.platform_size[2] + 0.5*self.dx
-        # mask = block.z < zmin
-        # if mask.any():
-        #     block.z[mask] = zmin
-        #     # zero translational velocity
-        #     block.u[mask] = block.v[mask] = block.w[mask] = 0.0
-        #     # wipe elastic strain & stress so they don't accumulate
-        #     for p in ('e','r','s','as'):
-        #         for i in range(3):
-        #             for j in range(3):
-        #                 name = f'{p}{i}{j}' if i<=j else None
-        #                 if name and name in block.properties:
-        #                     block.get(name)[mask] = 0.0
+
 if __name__=='__main__':
     app = GraspDeformableBlock()
     app.run()
