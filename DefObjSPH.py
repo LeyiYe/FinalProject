@@ -22,7 +22,7 @@ class GraspDeformableBlock(Application):
         self.c0 = 50.0                # speed of sound for EOS
 
         # Geometry dimensions (m)
-        self.block_size = (0.6, 0.2, 0.1)
+        self.block_size = (0.3, 0.2, 0.1)
         self.platform_size = (1.0, 0.6, 0.02)
         self.gripper_size = (0.05, 0.2, 0.1)
 
@@ -164,17 +164,47 @@ class GraspDeformableBlock(Application):
         )
         return eqns
 
+        
     def post_step(self, solver):
+        """
+        Called after each time-step: update gripper motion, enforce floor, and move rigid bodies manually.
+        """
         t = solver.t
-        v_in, v_lift = 0.2, 0.3
+        dt = solver.dt
+        # References to particle arrays
+        block = self.particles[0]
         g1, g2 = self.particles[2], self.particles[3]
+
+        # 1) Gripper motion: approach then lift
+        v_in, v_lift = 0.2, 0.3
         if t < 0.5:
-            g1.u[:] = v_in;    g2.u[:] = -v_in
-            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
+            # move jaws inward
+            g1.u[:] =  v_in
+            g2.u[:] = -v_in
+            g1.v[:] = g2.v[:] = 0
+            g1.w[:] = g2.w[:] = 0
         else:
+            # lift upward
             g1.u[:] = g2.u[:] = 0
             g1.v[:] = g2.v[:] = 0
             g1.w[:] = g2.w[:] = v_lift
+
+        # 2) Update rigid-body positions manually
+        for gr in (g1, g2):
+            gr.x += gr.u * dt
+            gr.y += gr.v * dt
+            gr.z += gr.w * dt
+
+        # 3) Enforce floor: clamp block above platform surface
+        # platform thickness + half dx
+        z_floor = self.platform_size[2] + 0.5 * self.dx
+        mask = block.z < z_floor
+        if mask.any():
+            # reset positions and velocities
+            block.z[mask] = z_floor
+            block.u[mask] = 0.0
+            block.v[mask] = 0.0
+            block.w[mask] = 0.0
 
 if __name__ == '__main__':
     app = GraspDeformableBlock()
