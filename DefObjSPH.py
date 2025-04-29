@@ -16,7 +16,7 @@ class GraspDeformableBlock(Application):
         # Simulation parameters
         self.dim = 3
         self.dx = 0.02                 # particle spacing
-        self.hdx = 1.2                # smoothing length factor
+        self.hdx = 2.0                # smoothing length factor
         self.rho0 = 1000.0            # reference density
         self.E = 1e7                  # Young's modulus (Pa)
         self.nu = 0.49                # Poisson ratio
@@ -117,7 +117,9 @@ class GraspDeformableBlock(Application):
         elastic = ElasticSolidsScheme(
             elastic_solids=['block'],
             solids=['platform','gripper1','gripper2'],
-            dim=self.dim)
+            dim=self.dim,
+            artificial_stress_eps=0.5,
+            xsph_eps=0.5)
         return SchemeChooser(default='elastic', elastic=elastic)
 
     def configure_scheme(self):
@@ -139,7 +141,7 @@ class GraspDeformableBlock(Application):
         # compute jaw target
         half_block = 0.5*self.block_size[0]
         half_grip  = 0.5*self.gripper_size[0]
-        target = -half_block - half_grip -0.02
+        target = -half_block - half_grip + 0.02
         # approach until contact then lift
         if g1.x[0] < target:
             g1.u[:] =  0.2; g2.u[:] = -0.2
