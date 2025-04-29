@@ -1,399 +1,127 @@
-from pysph.base.kernels import CubicSpline
-from pysph.solver.application import Application
-from pysph.solver.solver import Solver
-from pysph.sph.integrator import EPECIntegrator
-from pysph.sph.integrator_step import WCSPHStep, SolidMechStep
-from pysph.sph.rigid_body import RK2StepRigidBody
-from pysph.sph.equation import Group
-from pysph.sph.basic_equations import (
-    ContinuityEquation, XSPHCorrection
-)
-from pysph.sph.iisph import SummationDensity
-from pysph.sph.boundary_equations import MonaghanBoundaryForce
-from pysph.sph.solid_mech.basic import (
-    HookesDeviatoricStressRate,
-    EnergyEquationWithStress,
-    MonaghanArtificialStress
-)
+import os
+# Disable Cython and force pure Python kernels to avoid segfaults
+os.environ['PYSPH_DISABLE_CYTHON'] = '1'
+os.environ['PYSPH_USE_PUREPYTHON'] = '1'
 
-from pysph.sph.wc.basic import TaitEOS, MomentumEquation
-from pysph.base.utils import get_particle_array_rigid_body
-from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
-from pysph.tools import geometry as G
-from pysph.sph.wc.gtvf import VelocityGradient
 import numpy as np
+from pysph.base.utils import get_particle_array
+from pysph.solver.application import Application
+from pysph.sph.scheme import SchemeChooser
+from pysph.sph.solid_mech.basic import ElasticSolidsScheme
+from pysph.sph.equation import Group
+from pysph.sph.basic_equations import BodyForce
 
-# Material properties for rubber-like material
-DENSITY = 1000.0  # kg/m^3
-STIFFNESS = 1e6    # Pa (Young's modulus, 1MPa is typical for soft rubber)
-# VISCOSITY = 0.1    # Viscosity coefficient
-ALPHA = 0.3       # Artificial viscosity coefficient
-BETA = 0.0         # Second artificial viscosity coefficient
-GAMMA = 7.0        # Tait EOS exponent
-# YIELD_STRESS = 100 # Yield stress for plasticity
+class GraspDeformableBlock(Application):
+    def initialize(self):
+        # Simulation parameters
+        self.dim = 3
+        self.dx = 0.01                 # particle spacing
+        self.hdx = 1.3              # smoothing length factor
+        self.rho0 = 1000.0            # reference density
+        self.E = 1e7                  # Young's modulus (Pa)
+        self.nu = 0.49                # Poisson ratio
+        self.c0 = 50.0                # speed of sound
 
-# Simulation parameters
-DT = 1e-2
-TFINAL = 0.75
-DIM = 3
+        # Geometry dimensions (m)
+        self.block_size = (0.3, 0.2, 0.1)
+        self.platform_size = (1.0, 0.6, 0.02)
+        self.gripper_size = (0.05, 0.1, 0.2)
 
-# Domain and object dimensions
-BOX_WIDTH = 0.3
-BOX_HEIGHT = 0.0001
-BOX_DEPTH = 0.3
-PLATFORM_HEIGHT = 0.1
-OBJECT_WIDTH = 0.06
-OBJECT_HEIGHT = 0.05
-OBJECT_DEPTH = 0.05
-GRIPPER_WIDTH = 0.025
-GRIPPER_HEIGHT = 0.1
-GRIPPER_SPEED = 0.01
+    def create_block(self, center, size):
+        # Dynamic resolution
+        nx = max(3, int(round(size[0]/self.dx)))
+        ny = max(3, int(round(size[1]/self.dx)))
+        nz = max(3, int(round(size[2]/self.dx)))
+        xs = np.linspace(center[0] - size[0]/2 + self.dx/2,
+                         center[0] + size[0]/2 - self.dx/2, nx)
+        ys = np.linspace(center[1] - size[1]/2 + self.dx/2,
+                         center[1] + size[1]/2 - self.dx/2, ny)
+        zs = np.linspace(center[2] - size[2]/2 + self.dx/2,
+                         center[2] + size[2]/2 - self.dx/2, nz)
+        x, y, z = np.meshgrid(xs, ys, zs, indexing='ij')
+        return x.ravel(), y.ravel(), z.ravel()
 
-class DeformableObjectWithGrippers(Application):
-    def __init__(self):
-        super().__init__()
-        self.particle_arrays = {}
-
-    def add_user_options(self, group):
-        group.add_argument(
-            "--nx", action="store", type=int, dest="nx", default=20,
-            help="Number of particles along x direction in object."
-        )
-    
-    def consume_user_options(self):
-        self.nx = self.options.nx
-        self.ny = int(self.nx * OBJECT_HEIGHT / OBJECT_WIDTH)
-        self.nz = int(self.nx * OBJECT_DEPTH / OBJECT_WIDTH)
-        self.hdx = 1.2
-        self.dx = OBJECT_WIDTH / self.nx
-        self.particle_mass = DENSITY * self.dx**3
-    
-    def create_particles(self): 
-        # First calculate the reference speed of sound
-        c0 = np.sqrt(STIFFNESS/DENSITY)
-        
-        # Create the deformable object
-        x, y, z = G.get_3d_block(
-            dx=self.dx, 
-            length=OBJECT_WIDTH, 
-            height=OBJECT_HEIGHT,
-            depth=OBJECT_DEPTH,
-            center=[0, PLATFORM_HEIGHT + OBJECT_HEIGHT/2, 0]
-        )
-        
-        # Add some random perturbation
-        x += np.random.uniform(-self.dx/4, self.dx/4, len(x))
-        y += np.random.uniform(-self.dx/4, self.dx/4, len(y))
-        z += np.random.uniform(-self.dx/4, self.dx/4, len(z))
-        
-        # Create elastic object particle array
-        object_pa = get_particle_array_elastic_dynamics(
-            constants={
-                'E': STIFFNESS,
-                'nu': 0.3,
-                'rho_ref': DENSITY
-            },
-            name='object',
-            x=x, y=y, z=z,
-            u=np.zeros_like(x),
-            v=np.zeros_like(x),
-            w=np.zeros_like(x),
-            rho=np.ones_like(x)*DENSITY,
-            m=np.ones_like(x)*self.particle_mass,
-            h=np.ones_like(x)*self.dx*self.hdx,
-            # Stress tensor components
-            s00=np.zeros_like(x),
-            s01=np.zeros_like(x),
-            s02=np.zeros_like(x),
-            s11=np.zeros_like(x),
-            s12=np.zeros_like(x),
-            s22=np.zeros_like(x),
-            s10=np.zeros_like(x),
-            s20=np.zeros_like(x),
-            s21=np.zeros_like(x),
-            # Reference states
-            s000=np.zeros_like(x),
-            s010=np.zeros_like(x),
-            s020=np.zeros_like(x),
-            s110=np.zeros_like(x),
-            s120=np.zeros_like(x),
-            s220=np.zeros_like(x),
-            e=np.zeros_like(x),
-            e0=np.zeros_like(x),
-            # Time step properties
-            dt_cfl=np.zeros_like(x),
-            dt_force=np.zeros_like(x),
-            # Reference states
-            rho0=np.ones_like(x)*DENSITY,
-            u0=np.zeros_like(x),
-            v0=np.zeros_like(x),
-            w0=np.zeros_like(x)
-        )
-        props = ['v00','v01','v02','v10','v11','v12','v20','v21','v22',
-            'as00','as01','as02','as11','as12','as22']
-        
-        for prop in props:
-            object_pa.add_property(prop)
-            object_pa.get(prop)[:] = 0.0
-
-        object_pa.add_property('uhat')
-        object_pa.add_property('vhat')
-        object_pa.add_property('what')
-        object_pa.add_property('gradvhat', stride=9)
-        object_pa.uhat[:] = object_pa.u[:]
-        object_pa.vhat[:] = object_pa.v[:]
-        object_pa.what[:] = object_pa.w[:]
-        object_pa.gradvhat[:] = 0.0
-
-        platform_dx=self.dx*2
-
-        # Create platform particles
-        platform_x, platform_y, platform_z = G.get_3d_block(
-            dx=platform_dx,
-            length=BOX_WIDTH,
-            height=0.05,
-            depth=BOX_DEPTH,
-            center=[0, PLATFORM_HEIGHT/2, 0]
-        )
-        
-        platform_pa = get_particle_array_rigid_body(
-            name='platform',
-            x=platform_x, y=platform_y, z=platform_z,
-            h=np.ones_like(platform_x) * self.hdx * self.dx,
-            m=np.ones_like(platform_x) * self.particle_mass,
-            rho=np.ones_like(platform_x) * DENSITY * 100,
-            cs=np.ones_like(platform_x) * c0 * 10,
-            # Reference states
-            rho0=np.ones_like(platform_x) * DENSITY * 100,
-            u0=np.zeros_like(platform_x),
-            v0=np.zeros_like(platform_x),
-            w0=np.zeros_like(platform_x),
-            # Time step properties
-            dt_cfl=np.zeros_like(platform_x),
-            dt_force=np.zeros_like(platform_x)
+    def create_particles(self):
+        # 1) build your block geometry exactly as before
+        bx, by, bz = self.create_block(
+            center=(0, 0, self.platform_size[2] + self.block_size[2]/2),
+            size=self.block_size)
+        block = get_particle_array(
+            name='block',
+            x=bx, y=by, z=bz,
+            h=self.hdx*self.dx,
+            m=self.dx**3*self.rho0,
+            rho=self.rho0,
+            # only the *essential* material props here:
+            E=self.E,
+            nu=self.nu,
+            rho_ref=self.rho0,
+            c0_ref=self.c0,
+            G=self.E/(2*(1+self.nu))
         )
 
+        # 2) build your platform and grippers exactly as before
+        def make_rigid(name, center, size):
+            x,y,z = self.create_block(center, size)
+            return get_particle_array(
+                name=name,
+                x=x, y=y, z=z,
+                h=0.02*2.0, m=1e12, rho=self.rho0,
+                is_boundary=1, is_rigid=1,
+                # minimal extra props:
+                arho=1.0/self.rho0,
+                cs=self.c0,
+                z0=z.copy()
+            )
 
-    
-        # Create gripper particles (left and right)
-        left_gripper_x, left_gripper_y, left_gripper_z = G.get_3d_block(
-            dx=self.dx,
-            length=GRIPPER_WIDTH,
-            height=GRIPPER_HEIGHT,
-            depth=GRIPPER_WIDTH,
-            center=[-BOX_WIDTH/2 + GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2, 0]
-        )
-        
-        left_gripper_pa = get_particle_array_rigid_body(
-            name='left_gripper',
-            x=left_gripper_x, y=left_gripper_y, z=left_gripper_z,
-            h=np.ones_like(left_gripper_x) * self.hdx * self.dx,
-            m=np.ones_like(left_gripper_x) * self.particle_mass * 10,
-            rho=np.ones_like(left_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(left_gripper_x) * c0 * 10,
-            # Reference states
-            rho0=np.ones_like(left_gripper_x) * DENSITY * 10,
-            u0=np.zeros_like(left_gripper_x),
-            v0=np.zeros_like(left_gripper_x),
-            w0=np.zeros_like(left_gripper_x),
-            # Time step properties
-            dt_cfl=np.zeros_like(left_gripper_x),
-            dt_force=np.zeros_like(left_gripper_x)
-        )
-        right_gripper_x, right_gripper_y, right_gripper_z = G.get_3d_block(
-            dx=self.dx,
-            length=GRIPPER_WIDTH,
-            height=GRIPPER_HEIGHT,
-            depth=GRIPPER_WIDTH,
-            center=[BOX_WIDTH/2 - GRIPPER_WIDTH/2, PLATFORM_HEIGHT + GRIPPER_HEIGHT/2, 0]
-        )
-        
-        right_gripper_pa = get_particle_array_rigid_body(
-            name='right_gripper',
-            x=right_gripper_x, y=right_gripper_y, z=right_gripper_z,
-            h=np.ones_like(right_gripper_x) * self.hdx * self.dx,
-            m=np.ones_like(right_gripper_x) * self.particle_mass * 10,
-            rho=np.ones_like(right_gripper_x) * DENSITY * 10,
-            cs=np.ones_like(right_gripper_x) * c0 * 10,
-            # Reference states
-            rho0=np.ones_like(right_gripper_x) * DENSITY * 10,
-            u0=np.zeros_like(right_gripper_x),
-            v0=np.zeros_like(right_gripper_x),
-            w0=np.zeros_like(right_gripper_x),
-            # Time step properties
-            dt_cfl=np.zeros_like(right_gripper_x),
-            dt_force=np.zeros_like(right_gripper_x))
-        
-        # After creating object_pa, add these properties:
-        for prop in ['nx', 'ny', 'nz', 'tx', 'ty', 'tz']:
-            object_pa.add_property(prop)
-            object_pa.get(prop)[:] = 0.0
-        
-        # Similarly for platform_pa:
-        for prop in ['nx', 'ny', 'nz', 'tx', 'ty', 'tz']:
-            platform_pa.add_property(prop)
-            platform_pa.get(prop)[:] = 0.0
+        platform = make_rigid('platform',
+                              (0,0,self.platform_size[2]/2),
+                              self.platform_size)
+        gripper1 = make_rigid('gripper1',
+                              (-0.4,0,self.platform_size[2]+self.gripper_size[2]/2),
+                              self.gripper_size)
+        gripper2 = make_rigid('gripper2',
+                              ( 0.4,0,self.platform_size[2]+self.gripper_size[2]/2),
+                              self.gripper_size)
 
-        platform_pa.ny[:] = 1.0
+        particles = [block, platform, gripper1, gripper2]
 
-        for gripper in [left_gripper_pa, right_gripper_pa]:
-            for prop in ['nx', 'ny', 'nz', 'tx', 'ty', 'tz']:
-                gripper.add_property(prop)
-                gripper.get(prop)[:] = 0.0
-            # Set normals for grippers (pointing inward toward the object)
-            left_gripper_pa.nx[:] = 1.0    # Points to the right
-            right_gripper_pa.nx[:] = -1.0   # Points to the left
-            
-        for pa in [platform_pa, left_gripper_pa, right_gripper_pa]:
-            pa.add_property('uhat')
-            pa.add_property('vhat')
-            pa.add_property('what')
-            pa.uhat[:] = pa.u[:]
-            pa.vhat[:] = pa.v[:]
-            pa.what[:] = pa.w[:]
-        
-        self.particle_arrays['object'] = object_pa
-        self.particle_arrays['platform'] = platform_pa
-        self.particle_arrays['left_gripper'] = left_gripper_pa
-        self.particle_arrays['right_gripper'] = right_gripper_pa
+        # 3) **Let the scheme add only what it needs**, and drop everything else
+        #    The `clean=True` flag will remove any user-added props that
+        #    ElasticSolidsScheme doesn’t declare in its own property list.
+        self.scheme.setup_properties(particles, clean=True)
 
-        return list(self.particle_arrays.values())
-    
+        return particles
 
-    def create_solver(self):
-        kernel = CubicSpline(dim=DIM)
-        
-        integrator = EPECIntegrator(
-            object=SolidMechStep(),  # For deformable object
-            platform=RK2StepRigidBody(),  # For rigid platform
-            left_gripper=RK2StepRigidBody(),  # For rigid grippers
-            right_gripper=RK2StepRigidBody()
-        )
-        
-        solver = Solver(
-            kernel=kernel,
-            dim=DIM,
-            integrator=integrator,
-            dt=DT,
-            tf=TFINAL,
-            adaptive_timestep=True,
-            output_at_times=[0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
-        )
-        
-        return solver
-    
+
+    def create_scheme(self):
+        elastic = ElasticSolidsScheme(
+            elastic_solids=['block'],
+            solids=['platform','gripper1','gripper2'],
+            dim=self.dim,
+            artificial_stress_eps=0.5,
+            xsph_eps=0.5)
+        return SchemeChooser(default='elastic', elastic=elastic)
+
+    def configure_scheme(self):
+        self.scheme.configure_solver(dt=5e-5, tf=2.0, pfreq=50)
 
     def create_equations(self):
-        equations = [
-            # Step 1: Summation density for object
-            Group(
-                equations=[
-                    SummationDensity(dest='object', sources=['object', 'platform', 'left_gripper', 'right_gripper'])
-                ],
-                real=False
-            ),
+        eqns = self.scheme.get_equations()
+        eqns.append(Group(equations=[BodyForce(dest='block', sources=None,
+                                                fx=0, fy=0, fz=-9.81)],
+                           real=False))
+        return eqns
 
-            # Step 2: Velocity gradient tensor computation (needed for stress evolution)
-            Group(
-                equations=[
-                    VelocityGradient(
-                        dest='object',
-                        sources=['object'],
-                        dim=3
-                    )
-                ],
-                real=True
-            ),
-
-            # Step 3: Hookean elastic stress evolution and internal energy
-            Group(
-                equations=[
-                    HookesDeviatoricStressRate(dest='object', sources=['object']),
-                    EnergyEquationWithStress(dest='object', sources=['object'], alpha=ALPHA, beta=BETA),
-                    MonaghanArtificialStress(dest='object', sources=['object'])
-                ],
-                real=True
-            ),
-
-            # Step 4: Boundary interactions with platform and grippers
-            Group(
-                equations=[
-                    MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=self.dx*0.5),
-                    MonaghanBoundaryForce(dest='object', sources=['left_gripper'], deltap=self.dx),
-                    MonaghanBoundaryForce(dest='object', sources=['right_gripper'], deltap=self.dx)
-                ],
-                real=True
-            ),
-
-            # Step 5: Momentum equation under gravity (external + contact forces)
-            Group(
-                equations=[
-                    MomentumEquation(
-                        dest='object',
-                        sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-                        alpha=ALPHA,
-                        beta=BETA,
-                        c0=np.sqrt(STIFFNESS/DENSITY),
-                        gx=0.0,
-                        gy=0.0,
-                        gz=-9.81,
-                        tensile_correction=True
-                    )
-                ],
-                real=True
-            ),
-
-            # (Optional) XSPH correction to reduce particle disorder
-            Group(
-                equations=[
-                    XSPHCorrection(dest='object', sources=['object'], eps=0.5)
-                ],
-                real=False
-            )
-        ]
-        return equations
-
-    
-    # def pre_step(self, solver):
-    #     current_time = solver.t
-        
-    #     # Control gripper movement
-    #     left_gripper = self.particle_arrays['left_gripper']
-    #     right_gripper = self.particle_arrays['right_gripper']
-        
-    #     # First phase: Close grippers (0-1s)
-    #     if current_time < 0.3:
-    #         left_gripper.x[:] += GRIPPER_SPEED * DT
-    #         right_gripper.x[:] -= GRIPPER_SPEED * DT
-        
-    #     # Second phase: Lift grippers (1-3s)
-    #     elif current_time < 0.5:
-    #         left_gripper.y[:] += GRIPPER_SPEED * DT
-    #         right_gripper.y[:] += GRIPPER_SPEED * DT
-    #         left_gripper.z[:] += GRIPPER_SPEED * DT 
-    #         right_gripper.z[:] += GRIPPER_SPEED * DT
-        
-    #     # Update velocities for visualization
-    #     left_gripper.u[:] = GRIPPER_SPEED if current_time < 1.0 else 0.0
-    #     left_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
-    #     right_gripper.u[:] = -GRIPPER_SPEED if current_time < 1.0 else 0.0
-    #     right_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
-    #     left_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
-    #     right_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
-        
-    
     def post_step(self, solver):
-        """
-        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
-        """
         block = self.particles[0]
         g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
-        # compute jaw target
+        
         half_block = 0.5*self.block_size[0]
         half_grip  = 0.5*self.gripper_size[0]
         target = -half_block - half_grip + 0.02
-        # approach until contact then lift
+
         if g1.x[0] < target:
             g1.u[:] =  0.2; g2.u[:] = -0.2
             g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
@@ -401,14 +129,11 @@ class DeformableObjectWithGrippers(Application):
             g1.u[:] = g2.u[:] = 0
             g1.v[:] = g2.v[:] = 0
             g1.w[:] = g2.w[:] = 0.3
-        # integrate rigid bodies
-        for gr in (g1, g2):
-            gr.x += gr.u * dt; gr.y += gr.v*dt; gr.z += gr.w*dt
-            gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
-    
-    def post_process(self):
-        pass
 
-if __name__ == '__main__':
-    app = DeformableObjectWithGrippers()
+        for gr in (g1, g2):
+            gr.x += gr.u * dt; gr.y += gr.v * dt; gr.z += gr.w * dt
+            gr.z0 += gr.w * dt
+
+if __name__=='__main__':
+    app = GraspDeformableBlock()
     app.run()
