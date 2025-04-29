@@ -128,21 +128,26 @@ class GraspDeformableBlock(Application):
         return eqns
 
     def post_step(self, solver):
-        # Move grippers by position control, then lift
+        """
+        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
+        """
+        block = self.particles[0]
+        g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
-        block, plat, g1, g2 = self.particles
-        # target closure x-position
-        tgt = -(0.5*self.block_size[0] + 0.5*self.gripper_size[0]) - 0.02
-        if g1.x[0] > tgt:
-            vel = 0.2
-            g1.u[:] = -vel; g2.u[:] = vel
+        # compute jaw target
+        half_block = 0.5*self.block_size[0]
+        half_grip  = 0.5*self.gripper_size[0]
+        target = -half_block - half_grip -0.02
+        # approach until contact then lift
+        if g1.x[0] < target:
+            g1.u[:] =  0.2; g2.u[:] = -0.2
+            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
         else:
-            g1.u[:] = g2.u[:] = 0
-            g1.w[:] = g2.w[:] = 0.3
-        # integrate grippers
-        for g in (g1,g2):
-            g.x += g.u*dt; g.y += g.v*dt; g.z += g.w*dt
-        # clamp block bottom
+            g1.u[:] = g2.u[:] = 0; g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0.3
+        # integrate rigid bodies
+        for gr in (g1, g2):
+            gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
+        # clamp block at floor but retain SPH deformation
         zmin = self.platform_size[2] + 0.5*self.dx
         block.z[:] = np.maximum(block.z, zmin)
         block.w[:] = np.where(block.z<=zmin, np.maximum(block.w,0), block.w)
