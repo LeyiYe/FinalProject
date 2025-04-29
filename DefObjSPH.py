@@ -49,11 +49,18 @@ class GraspDeformableBlock(Application):
                                    h=self.hdx * self.dx,
                                    m=self.dx**3 * self.rho0,
                                    rho=self.rho0)
+        
+
         # set material properties on block
         block.add_property('E')
         block.add_property('nu')
+        block.add_property('arho')
+
         block.E[:] = self.E
         block.nu[:] = self.nu
+        block.arho[:] = self.rho0
+
+
 
         # Rigid platform as boundary
         px, py, pz = self.create_block(
