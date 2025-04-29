@@ -141,26 +141,43 @@ class GraspDeformableBlock(Application):
         eqns = self.scheme.get_equations()
         # Gravity on block
         eqns.append(Group(equations=[BodyForce(dest='block', sources=None,
-                                                fx=0, fy=-9.81, fz=0)],
+                                                fx=0, fy=0, fz=-9.81)],
                            real=False))
         return eqns
-
     def post_step(self, solver):
+        """
+        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
+        """
+        block = self.particles[0]
+        g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
-        block, platform, g1, g2 = self.particles
-        # 1) Move grippers inward then lift
-        target = -0.5*self.block_size[0] - 0.5*self.gripper_size[0] + 0.02
+        # compute jaw target
+        half_block = 0.5*self.block_size[0]
+        half_grip  = 0.5*self.gripper_size[0]
+        target = -half_block - half_grip + 0.02
+        # approach until contact then lift
         if g1.x[0] < target:
-            g1.u[:] = -0.2; g2.u[:] = 0.2
-            g1.w[:] = g2.w[:] = 0.0
+            g1.u[:] =  0.2; g2.u[:] = -0.2
+            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
         else:
-            g1.u[:] = g2.u[:] = 0.0
-            g1.w[:] = g2.w[:] = 0.3
-        # 2) Integrate rigid bodies and update reference pos
+            g1.u[:] = g2.u[:] = 0; g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0.3
+        # integrate rigid bodies
         for gr in (g1, g2):
-            gr.x  += gr.u * dt;  gr.x0 += gr.u * dt
-            gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
-
-if __name__ == '__main__':
+            gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
+        # clamp block at floor but retain SPH deformation
+        zmin = self.platform_size[2] + 0.5*self.dx
+        mask = block.z < zmin
+        if mask.any():
+            block.z[mask] = zmin
+            # zero translational velocity
+            block.u[mask] = block.v[mask] = block.w[mask] = 0.0
+            # wipe elastic strain & stress so they don't accumulate
+            for p in ('e','r','s','as'):
+                for i in range(3):
+                    for j in range(3):
+                        name = f'{p}{i}{j}' if i<=j else None
+                        if name and name in block.properties:
+                            block.get(name)[mask] = 0.0
+if __name__=='__main__':
     app = GraspDeformableBlock()
     app.run()
