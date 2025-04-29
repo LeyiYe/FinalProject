@@ -59,6 +59,15 @@ class GraspDeformableBlock(Application):
         block.add_property('ax')
         block.add_property('ay')
         block.add_property('az')
+        block.add_property('e')
+        block.add_property('e0')
+        block.add_property('rho0')
+        block.add_property('u0')
+        block.add_property('v0')
+        block.add_property('w0')
+        block.add_property('x0')
+        block.add_property('y0')
+        block.add_property('z0')
         block.E[:] = self.E
         block.nu[:] = self.nu
         block.rho_ref[:] = self.rho0
@@ -68,6 +77,7 @@ class GraspDeformableBlock(Application):
             for j in range(self.dim):
                 block.add_property(f'v{i}{j}')
                 block.add_property(f'as{i}{j}')
+                block.add_property(f's{i}{j}0')
         # Allocate stress and rotation arrays for MonaghanArtificialStress
         for i in range(self.dim):
             for j in range(i, self.dim):
