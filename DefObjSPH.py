@@ -51,101 +51,65 @@ class GraspDeformableBlock(Application):
                                    m=self.dx**3 * self.rho0,
                                    rho=self.rho0)
         # set material and EOS properties on block
-        block.add_property('E')
-        block.add_property('nu')
-        block.add_property('rho_ref')
-        block.add_property('c0_ref')
-        block.add_property('G')
-        block.add_property('ax')
-        block.add_property('ay')
-        block.add_property('az')
-        block.add_property('e')
-        block.add_property('e0')
-        block.add_property('rho0')
-        block.add_property('u0')
-        block.add_property('v0')
-        block.add_property('w0')
-        block.add_property('x0')
-        block.add_property('y0')
-        block.add_property('z0')
+        block.add_property('E');       block.E[:] = self.E
+        block.add_property('nu');      block.nu[:] = self.nu
+        block.add_property('rho_ref'); block.rho_ref[:] = self.rho0
+        block.add_property('c0_ref');  block.c0_ref[:] = self.c0
+        block.add_property('G');
+        block.add_property('ax'); block.add_property('ay'); block.add_property('az')
+        block.add_property('e'); block.add_property('e0')
+        block.add_property('rho0'); block.add_property('u0'); block.add_property('v0'); block.add_property('w0')
+        block.add_property('x0'); block.add_property('y0'); block.add_property('z0')
         block.add_property('ae')
-        block.E[:] = self.E
-        block.nu[:] = self.nu
-        block.rho_ref[:] = self.rho0
-        block.c0_ref[:] = self.c0
-        # Allocate velocity gradient arrays (v_ij) for scheme
+        # Allocate velocity gradient, artificial stress, and stress arrays
         for i in range(self.dim):
             for j in range(self.dim):
                 block.add_property(f'v{i}{j}')
                 block.add_property(f'as{i}{j}')
                 block.add_property(f's{i}{j}0')
-        # Allocate stress and rotation arrays for MonaghanArtificialStress
         for i in range(self.dim):
             for j in range(i, self.dim):
                 block.add_property(f'r{i}{j}')
                 block.add_property(f's{i}{j}')
 
-
         # Rigid platform as boundary
         px, py, pz = self.create_block(
-            center=(0.0, 0.0, self.platform_size[2] / 2),
-            size=self.platform_size
+            center=(0.0, 0.0, self.platform_size[2]/2), size=self.platform_size
         )
         platform = get_particle_array(name='platform', x=px, y=py, z=pz,
-                                      h=self.hdx * self.dx,
-                                      m=1e12, rho=self.rho0,
+                                      h=self.hdx * self.dx, m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
-
         # Left gripper (rigid)
         g1x, g1y, g1z = self.create_block(
             center=(-0.4, 0.0, self.platform_size[2] + self.gripper_size[2]/2),
             size=self.gripper_size
         )
         gripper1 = get_particle_array(name='gripper1', x=g1x, y=g1y, z=g1z,
-                                      h=self.hdx * self.dx,
-                                      m=1e12, rho=self.rho0,
+                                      h=self.hdx * self.dx, m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
-
         # Right gripper (rigid)
         g2x, g2y, g2z = self.create_block(
             center=(0.4, 0.0, self.platform_size[2] + self.gripper_size[2]/2),
             size=self.gripper_size
         )
         gripper2 = get_particle_array(name='gripper2', x=g2x, y=g2y, z=g2z,
-                                      h=self.hdx * self.dx,
-                                      m=1e12, rho=self.rho0,
+                                      h=self.hdx * self.dx, m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
-
-        # Allocate additional fields required by stress-based equations
-        for arr in [block, platform, gripper1, gripper2]:
-            # Reciprocal density tracer needed for continuity equation
+        # Additional fields for continuity and artificial stress
+        for arr in (block, platform, gripper1, gripper2):
             arr.add_property('cs')
             if 'arho' not in arr.properties:
-                arr.add_property('arho')
-                arr.arho[:] = 1.0 / self.rho0
-            # Nyquist field for particle splitting
-            if 'n' not in arr.properties:
-                arr.add_property('n')
-            # Pressure rate change for Monaghan & momentum update
-            if 'wdeltap' not in arr.properties:
-                arr.add_property('wdeltap')
-            # Stress and artificial stress fields
+                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
+            arr.add_property('n'); arr.add_property('wdeltap')
             for i in range(self.dim):
                 for j in range(i, self.dim):
-                    prop_r = f'r{i}{j}'
-                    prop_s = f's{i}{j}'
-                    if prop_r not in arr.properties:
-                        arr.add_property(prop_r)
-                    if prop_s not in arr.properties:
-                        arr.add_property(prop_s)
-
-        return [block, platform, gripper1, gripper2] 
+                    arr.add_property(f'r{i}{j}'); arr.add_property(f's{i}{j}')
+        return [block, platform, gripper1, gripper2]
 
     def create_scheme(self):
-        # ElasticSolidsScheme expects (elastic_solids, solids, dim)
         elastic = ElasticSolidsScheme(
             elastic_solids=['block'],
-            solids=['platform', 'gripper1', 'gripper2'],
+            solids=['platform','gripper1','gripper2'],
             dim=self.dim
         )
         return SchemeChooser(default='elastic', elastic=elastic)
@@ -154,60 +118,34 @@ class GraspDeformableBlock(Application):
         self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=100)
 
     def create_equations(self):
-        # Use the scheme's predefined solid mechanics + contact equations
         eqns = self.scheme.get_equations()
-        # Add gravity as a body force on the deformable block
-        eqns.append(
-            Group(
-                equations=[BodyForce(dest='block', sources=None, fx=0.0, fy=0.0, fz=-9.81)],
-                real=False
-            )
-        )
+        eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False))
         return eqns
 
     def post_step(self, solver):
         """
-        Called after each time-step: update gripper motion via position control,
-        integrate rigid bodies, and let SPH contact handle block compression.
+        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
         """
-        import numpy as _np
         block = self.particles[0]
         g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
-
-        # Compute target jaw position: inner faces should meet block edges
-        half_block = 0.5 * self.block_size[0]
-        half_grip = 0.5 * self.gripper_size[0]
-        target_pos = half_block - half_grip
-
-        # 1) Position-based gripper approach
-        v_in = 0.2
-        v_lift = 0.3
-        if g1.x[0] < target_pos:
-            # approach
-            g1.u[:] =  v_in
-            g2.u[:] = -v_in
-            g1.v[:] = g2.v[:] = 0.0
-            g1.w[:] = g2.w[:] = 0.0
+        # compute jaw target
+        half_block = 0.5*self.block_size[0]
+        half_grip  = 0.5*self.gripper_size[0]
+        target = -half_block - half_grip
+        # approach until contact then lift
+        if g1.x[0] < target:
+            g1.u[:] =  0.2; g2.u[:] = -0.2
+            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
         else:
-            # lift
-            g1.u[:] = g2.u[:] = 0.0
-            g1.v[:] = g2.v[:] = 0.0
-            g1.w[:] = g2.w[:] = v_lift
-
-        # 2) Integrate rigid-body motion manually
+            g1.u[:] = g2.u[:] = 0; g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0.3
+        # integrate rigid bodies
         for gr in (g1, g2):
-            gr.x += gr.u * dt
-            gr.y += gr.v * dt
-            gr.z += gr.w * dt
-
-        # 3) Allow SPH contact to compress block naturally
-        # You can still prevent slight penetration by clamping minimally
-        min_z = self.platform_size[2] + 0.5 * self.dx
-        # clamp positions
-        block.z[:] = _np.maximum(block.z, min_z)
-        # ensure no downward velocity when clamped
-        block.w[:] = _np.where(block.z <= min_z, _np.maximum(block.w, 0.0), block.w)
+            gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
+        # clamp block at floor but retain SPH deformation
+        zmin = self.platform_size[2] + 0.5*self.dx
+        block.z[:] = np.maximum(block.z, zmin)
+        block.w[:] = np.where(block.z<=zmin, np.maximum(block.w,0), block.w)
 
 if __name__ == '__main__':
     app = GraspDeformableBlock()
