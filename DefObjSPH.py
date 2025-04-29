@@ -69,7 +69,8 @@ class GraspDeformableBlock(Application):
             for j in range(self.dim):
                 block.add_property(f'v{i}{j}')
         # Pressure-rate and splitting tracer
-        block.add_property('wdeltap'); block.add_property('n')[:] = 1.0/self.rho0
+        block.add_property('wdeltap')
+        block.add_property('n'); block.n[:] = 1.0/self.rho0
 
         particles = [block]
 
