@@ -15,8 +15,8 @@ class GraspDeformableBlock(Application):
     def initialize(self):
         # Simulation parameters
         self.dim = 3
-        self.dx = 0.02                 # particle spacing
-        self.hdx = 2.0                # smoothing length factor
+        self.dx = 0.01                 # particle spacing
+        self.hdx = 1.3              # smoothing length factor
         self.rho0 = 1000.0            # reference density
         self.E = 1e7                  # Young's modulus (Pa)
         self.nu = 0.49                # Poisson ratio
@@ -70,15 +70,27 @@ class GraspDeformableBlock(Application):
         # Platform and grippers
         def make_rigid(name, center, size):
             x,y,z = self.create_block(center, size)
-            pa = get_particle_array(name=name, x=x, y=y, z=z,
-                                     h=self.hdx*self.dx,
-                                     m=1e12, rho=self.rho0,
-                                     is_boundary=1, is_rigid=1)
+            pa = get_particle_array(
+                name=name, x=x, y=y, z=z,
+                h=self.hdx*self.dx, m=1e12, rho=self.rho0,
+                is_boundary=1, is_rigid=1)
+            # Mirror same extra fields
+            for arr in (pa,):
+                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
+                arr.add_property('cs');   arr.cs[:]   = self.c0
+                for i in range(self.dim):
+                    for j in range(i, self.dim):
+                        arr.add_property(f'r{i}{j}'); arr.add_property(f's{i}{j}')
+                    for j in range(self.dim):
+                        arr.add_property(f'v{i}{j}')
+                arr.add_property('wdeltap'); arr.add_property('n')
             particles.append(pa)
             return pa
         platform = make_rigid('platform', (0,0,self.platform_size[2]/2), self.platform_size)
-        g1 = make_rigid('gripper1', (-0.4,0,self.platform_size[2]+self.gripper_size[2]/2), self.gripper_size)
-        g2 = make_rigid('gripper2', ( 0.4,0,self.platform_size[2]+self.gripper_size[2]/2), self.gripper_size)
+        gripper1 = make_rigid('gripper1', (
+            -0.4, 0, self.platform_size[2] + self.gripper_size[2]/2), self.gripper_size)
+        gripper2 = make_rigid('gripper2', (
+             0.4, 0, self.platform_size[2] + self.gripper_size[2]/2), self.gripper_size)
 
                 # Manually add any missing fields required by the solid scheme
         for arr in particles:
@@ -123,48 +135,32 @@ class GraspDeformableBlock(Application):
         return SchemeChooser(default='elastic', elastic=elastic)
 
     def configure_scheme(self):
-        self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=50)
+        self.scheme.configure_solver(dt=5e-5, tf=2.0, pfreq=50)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        # Body force for gravity
-        eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0,fy=0,fz=-9.81)], real=False))
+        # Gravity on block
+        eqns.append(Group(equations=[BodyForce(dest='block', sources=None,
+                                                fx=0, fy=-9.81, fz=0)],
+                           real=False))
         return eqns
 
     def post_step(self, solver):
-        """
-        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
-        """
-        block = self.particles[0]
-        g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
-        # compute jaw target
-        half_block = 0.5*self.block_size[0]
-        half_grip  = 0.5*self.gripper_size[0]
-        target = -half_block - half_grip + 0.02
-        # approach until contact then lift
+        block, platform, g1, g2 = self.particles
+        # 1) Move grippers inward then lift
+        target = -0.5*self.block_size[0] - 0.5*self.gripper_size[0] + 0.02
         if g1.x[0] < target:
-            g1.u[:] =  0.2; g2.u[:] = -0.2
-            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
+            g1.u[:] = -0.2; g2.u[:] = 0.2
+            g1.w[:] = g2.w[:] = 0.0
         else:
-            g1.u[:] = g2.u[:] = 0; g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0.3
-        # integrate rigid bodies
+            g1.u[:] = g2.u[:] = 0.0
+            g1.w[:] = g2.w[:] = 0.3
+        # 2) Integrate rigid bodies and update reference pos
         for gr in (g1, g2):
-            gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
-        # clamp block at floor but retain SPH deformation
-        zmin = self.platform_size[2] + 0.5*self.dx
-        mask = block.z < zmin
-        if mask.any():
-            block.z[mask] = zmin
-            # zero translational velocity
-            block.u[mask] = block.v[mask] = block.w[mask] = 0.0
-            # wipe elastic strain & stress so they don't accumulate
-            for p in ('e','r','s','as'):
-                for i in range(3):
-                    for j in range(3):
-                        name = f'{p}{i}{j}' if i<=j else None
-                        if name and name in block.properties:
-                            block.get(name)[mask] = 0.0
-if __name__=='__main__':
+            gr.x  += gr.u * dt;  gr.x0 += gr.u * dt
+            gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
+
+if __name__ == '__main__':
     app = GraspDeformableBlock()
     app.run()
