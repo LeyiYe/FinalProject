@@ -178,7 +178,7 @@ class GraspDeformableBlock(Application):
         # Compute target jaw position: inner faces should meet block edges
         half_block = 0.5 * self.block_size[0]
         half_grip = 0.5 * self.gripper_size[0]
-        target_pos = -half_block - half_grip
+        target_pos = half_block - half_grip
 
         # 1) Position-based gripper approach
         v_in = 0.2
