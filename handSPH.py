@@ -6,8 +6,9 @@ from pysph.sph.integrator_step import WCSPHStep, SolidMechStep
 from pysph.sph.rigid_body import RK2StepRigidBody
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import (
-    ContinuityEquation, XSPHCorrection, SummationDensity
+    ContinuityEquation, XSPHCorrection
 )
+from pysph.sph.iisph import SummationDensity
 from pysph.sph.boundary_equations import MonaghanBoundaryForce
 from pysph.sph.solid_mech.basic import (
     HookesDeviatoricStressRate,
@@ -33,7 +34,7 @@ GAMMA = 7.0        # Tait EOS exponent
 
 # Simulation parameters
 DT = 1e-2
-TFINAL = 5.0
+TFINAL = 1.0
 DIM = 3
 
 # Domain and object dimensions
@@ -46,7 +47,7 @@ OBJECT_HEIGHT = 0.05
 OBJECT_DEPTH = 0.05
 GRIPPER_WIDTH = 0.025
 GRIPPER_HEIGHT = 0.1
-GRIPPER_SPEED = 0.1
+GRIPPER_SPEED = 0.01
 
 class DeformableObjectWithGrippers(Application):
     def __init__(self):
@@ -280,54 +281,126 @@ class DeformableObjectWithGrippers(Application):
         )
         
         return solver
-
+    
 
     def create_equations(self):
         equations = [
-            # Density summation
-            Group(equations=[
-                SummationDensity(dest='object', sources=['object'])
-            ], real=False),
+            # Step 1: Summation density for object
+            Group(
+                equations=[
+                    SummationDensity(dest='object', sources=['object', 'platform', 'left_gripper', 'right_gripper'])
+                ],
+                real=False
+            ),
 
-            Group(equations=[
-                MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=0.1*self.dx),
-                MonaghanBoundaryForce(dest='platform', sources=['object'], deltap=0.1*self.dx),
-            ], real=True),
-        
+            # Step 2: Velocity gradient tensor computation (needed for stress evolution)
+            Group(
+                equations=[
+                    VelocityGradient(
+                        dest='object',
+                        sources=['object'],
+                        dim=3
+                    )
+                ],
+                real=True
+            ),
 
-            Group(equations=[
-                HookesDeviatoricStressRate(
-                    dest='object',
-                    sources=['object']
-                ),
-                EnergyEquationWithStress(
-                    dest='object',
-                    sources=['object'],
-                    alpha=ALPHA,
-                    beta=BETA,
-                ),
-                MonaghanArtificialStress(
-                    dest='object',
-                    sources=['object']
-                )
-            ], real=True),
-            
-            # Momentum equation with corrected gravity
-            Group(equations=[
-                MomentumEquation(
-                    dest='object',
-                    sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-                    c0=np.sqrt(STIFFNESS/DENSITY),
-                    alpha=ALPHA,
-                    beta=BETA,
-                    gx=0.0,  # Changed from gz to gx for correct direction
-                    gy=-9.81,  # Standard gravity in y-direction
-                    gz=0.0,
-                    tensile_correction=True
-                )
-            ], real=True)
+            # Step 3: Hookean elastic stress evolution and internal energy
+            Group(
+                equations=[
+                    HookesDeviatoricStressRate(dest='object', sources=['object']),
+                    EnergyEquationWithStress(dest='object', sources=['object'], alpha=ALPHA, beta=BETA),
+                    MonaghanArtificialStress(dest='object', sources=['object'])
+                ],
+                real=True
+            ),
+
+            # Step 4: Boundary interactions with platform and grippers
+            Group(
+                equations=[
+                    MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=self.dx),
+                    MonaghanBoundaryForce(dest='object', sources=['left_gripper'], deltap=self.dx),
+                    MonaghanBoundaryForce(dest='object', sources=['right_gripper'], deltap=self.dx)
+                ],
+                real=True
+            ),
+
+            # Step 5: Momentum equation under gravity (external + contact forces)
+            Group(
+                equations=[
+                    MomentumEquation(
+                        dest='object',
+                        sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+                        alpha=ALPHA,
+                        beta=BETA,
+                        c0=np.sqrt(STIFFNESS/DENSITY),
+                        gx=0.0,
+                        gy=-9.81,
+                        gz=0.0,
+                        tensile_correction=True
+                    )
+                ],
+                real=True
+            ),
+
+            # (Optional) XSPH correction to reduce particle disorder
+            Group(
+                equations=[
+                    XSPHCorrection(dest='object', sources=['object'], eps=0.5)
+                ],
+                real=False
+            )
         ]
         return equations
+
+
+
+    # def create_equations(self):
+    #     equations = [
+    #         # Density summation
+    #         Group(equations=[
+    #             SummationDensity(dest='object', sources=['object'])
+    #         ], real=False),
+
+    #         Group(equations=[
+    #             MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=0.1*self.dx),
+    #             MonaghanBoundaryForce(dest='platform', sources=['object'], deltap=0.1*self.dx),
+    #         ], real=True),
+        
+
+    #         Group(equations=[
+    #             HookesDeviatoricStressRate(
+    #                 dest='object',
+    #                 sources=['object']
+    #             ),
+    #             EnergyEquationWithStress(
+    #                 dest='object',
+    #                 sources=['object'],
+    #                 alpha=ALPHA,
+    #                 beta=BETA,
+    #             ),
+    #             MonaghanArtificialStress(
+    #                 dest='object',
+    #                 sources=['object']
+    #             )
+    #         ], real=True),
+            
+    #         # Momentum equation with corrected gravity
+    #         Group(equations=[
+    #             MomentumEquation(
+    #                 dest='object',
+    #                 sources=['object', 'platform', 'left_gripper', 'right_gripper'],
+    #                 c0=np.sqrt(STIFFNESS/DENSITY),
+    #                 alpha=ALPHA,
+    #                 beta=BETA,
+    #                 gx=0.0,  # Changed from gz to gx for correct direction
+    #                 gy=-9.81,  # Standard gravity in y-direction
+    #                 gz=0.0,
+    #                 tensile_correction=True
+    #             )
+    #         ], real=True)
+    #     ]
+    #     return equations
 
 
     # def create_equations(self):
