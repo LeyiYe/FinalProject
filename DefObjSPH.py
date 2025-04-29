@@ -102,7 +102,8 @@ class GraspDeformableBlock(Application):
     def create_equations(self):
         eqns = []
         # Hooke's law via deviatoric stress rate
-        from pysph.sph.solid_mech.basic import HookesDeviatoricStressRate, ContinuityEquation
+        from pysph.sph.basic_equations import ContinuityEquation
+        from pysph.sph.solid_mech.basic import HookesDeviatoricStressRate
         eqns.append(Group(
             equations=[
                 ContinuityEquation(dest='block', sources=['block']),
