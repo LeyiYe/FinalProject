@@ -126,14 +126,13 @@ class GraspDeformableBlock(Application):
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        #eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False))
-        eqns.append(Group(
-            equations=[MomentumEquationPressureGradient(dest='block', sources=None, pb=self.c0**2 * self.rho0,   # background pressure
-                gx=0, gy=-9.81, gz=0)],
-            real=False
-        ))
+        eqns.append(
+            Group(equations=[
+                BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)
+            ], real=False)
+        )
         return eqns
-
+    
     def post_step(self, solver):
         """
         After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
