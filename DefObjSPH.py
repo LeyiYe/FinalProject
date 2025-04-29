@@ -1,12 +1,14 @@
+import os
+# Disable Cython JIT compilation to avoid build errors
+os.environ['PYSPH_DISABLE_CYTHON'] = '1'
+
 import numpy as np
 from pysph.base.utils import get_particle_array
 from pysph.solver.application import Application
 from pysph.sph.scheme import SchemeChooser
 from pysph.sph.solid_mech.basic import ElasticSolidsScheme
-from pysph.sph.equation import Group, Gravity
-
-import os
-os.environ['PYSPH_DISABLE_CYTHON'] = '1'  # Disable plotting
+from pysph.sph.equation import Group
+from pysph.sph.basic_equations import BodyForce
 
 class GraspDeformableBlock(Application):
     def initialize(self):
@@ -105,7 +107,7 @@ class GraspDeformableBlock(Application):
         # Add gravity as a body force on the deformable block
         eqns.append(
             Group(
-                equations=[Gravity(dest='block', sources=None, gx=0, gy=0, gz=-9.81)],
+                equations=[BodyForce(dest='block', sources=None, fx=0.0, fy=0.0, fz=-9.81)],
                 real=False
             )
         )
