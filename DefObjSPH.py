@@ -63,7 +63,7 @@ class GraspDeformableBlock(Application):
 
         for arr in ['as22', 'as22', 'as12','as00', 'as11', 'as01', 'as02',
                     'ay', 'ax', 'az', 'e', 'e0', 'rho0', 's000', 's010', 's020',
-                    's110', 's120', 's220', 'u0', 'v0', 'w0', 'x0', 'y0', 'z0' ]:
+                    's110', 's120', 's220', 'u0', 'v0', 'w0', 'x0', 'y0', 'z0', 'ae']:
             block.add_property(arr)
             
 
