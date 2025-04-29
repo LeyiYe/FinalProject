@@ -55,6 +55,7 @@ class GraspDeformableBlock(Application):
         block.add_property('nu')
         block.add_property('rho_ref')
         block.add_property('c0_ref')
+        block.add_property('G')
         block.E[:] = self.E
         block.nu[:] = self.nu
         block.rho_ref[:] = self.rho0
@@ -63,15 +64,13 @@ class GraspDeformableBlock(Application):
         for i in range(self.dim):
             for j in range(self.dim):
                 block.add_property(f'v{i}{j}')
+                block.add_property(f'as{i}{j}')
         # Allocate stress and rotation arrays for MonaghanArtificialStress
         for i in range(self.dim):
             for j in range(i, self.dim):
                 block.add_property(f'r{i}{j}')
                 block.add_property(f's{i}{j}')
-        # Allocate velocity gradient arrays
-        for i in range(self.dim):
-            for j in range(self.dim):
-                block.add_property(f'v{i}{j}')
+
 
         # Rigid platform as boundary
         px, py, pz = self.create_block(
