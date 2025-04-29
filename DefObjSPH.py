@@ -72,7 +72,7 @@ class GraspDeformableBlock(Application):
             x,y,z = self.create_block(center, size)
             pa = get_particle_array(
                 name=name, x=x, y=y, z=z,
-                h=0.02*self.dx, m=1e12, rho=self.rho0,
+                h=0.02*2.0, m=1e12, rho=self.rho0,
                 is_boundary=1, is_rigid=1)
             # Mirror same extra fields
             for arr in (pa,):
