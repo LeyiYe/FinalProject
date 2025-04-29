@@ -34,12 +34,12 @@ GAMMA = 7.0        # Tait EOS exponent
 
 # Simulation parameters
 DT = 1e-2
-TFINAL = 1.0
+TFINAL = 0.75
 DIM = 3
 
 # Domain and object dimensions
 BOX_WIDTH = 0.3
-BOX_HEIGHT = 0.001
+BOX_HEIGHT = 0.0001
 BOX_DEPTH = 0.3
 PLATFORM_HEIGHT = 0.1
 OBJECT_WIDTH = 0.06
@@ -318,7 +318,7 @@ class DeformableObjectWithGrippers(Application):
             # Step 4: Boundary interactions with platform and grippers
             Group(
                 equations=[
-                    MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=self.dx),
+                    MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=self.dx*0.5),
                     MonaghanBoundaryForce(dest='object', sources=['left_gripper'], deltap=self.dx),
                     MonaghanBoundaryForce(dest='object', sources=['right_gripper'], deltap=self.dx)
                 ],
@@ -353,111 +353,6 @@ class DeformableObjectWithGrippers(Application):
         ]
         return equations
 
-
-
-    # def create_equations(self):
-    #     equations = [
-    #         # Density summation
-    #         Group(equations=[
-    #             SummationDensity(dest='object', sources=['object'])
-    #         ], real=False),
-
-    #         Group(equations=[
-    #             MonaghanBoundaryForce(dest='object', sources=['platform'], deltap=0.1*self.dx),
-    #             MonaghanBoundaryForce(dest='platform', sources=['object'], deltap=0.1*self.dx),
-    #         ], real=True),
-        
-
-    #         Group(equations=[
-    #             HookesDeviatoricStressRate(
-    #                 dest='object',
-    #                 sources=['object']
-    #             ),
-    #             EnergyEquationWithStress(
-    #                 dest='object',
-    #                 sources=['object'],
-    #                 alpha=ALPHA,
-    #                 beta=BETA,
-    #             ),
-    #             MonaghanArtificialStress(
-    #                 dest='object',
-    #                 sources=['object']
-    #             )
-    #         ], real=True),
-            
-    #         # Momentum equation with corrected gravity
-    #         Group(equations=[
-    #             MomentumEquation(
-    #                 dest='object',
-    #                 sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-    #                 c0=np.sqrt(STIFFNESS/DENSITY),
-    #                 alpha=ALPHA,
-    #                 beta=BETA,
-    #                 gx=0.0,  # Changed from gz to gx for correct direction
-    #                 gy=-9.81,  # Standard gravity in y-direction
-    #                 gz=0.0,
-    #                 tensile_correction=True
-    #             )
-    #         ], real=True)
-    #     ]
-    #     return equations
-
-
-    # def create_equations(self):
-        # equations = [
-        # Group(
-        #     equations=[
-        #         # This calculates velocity gradients (du, dv, dw)
-        #         VelocityGradient(
-        #             dest='object', 
-        #             sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-        #             dim = 3
-        #         ),
-        #     ],
-        #     real=True
-        # ),
-
-        #     # Density summation for object
-        #     Group(
-        #         equations=[
-        #             SummationDensity(dest='object', sources=['object', 'platform', 'left_gripper', 'right_gripper'])
-        #         ],
-        #         real=False
-        #     ),
-            
-        #     # Tait equation of state for object
-        #     Group(
-        #         equations=[
-        #             TaitEOS(
-        #                 dest='object', sources=None, 
-        #                 rho0=DENSITY, c0=np.sqrt(STIFFNESS/DENSITY), gamma=GAMMA
-        #             )
-        #         ],
-        #         real=False
-        #     ),
-            
-        #     # Momentum equation with artificial viscosity
-        #     Group(
-        #         equations=[
-        #             ContinuityEquation(
-        #                 dest='object', 
-        #                 sources=['object', 'platform', 'left_gripper', 'right_gripper']
-        #             ),
-        #             MomentumEquation(
-        #                 dest='object', 
-        #                 sources=['object', 'platform', 'left_gripper', 'right_gripper'],
-        #                 alpha=ALPHA, beta=BETA, gy=-9.81, c0=np.sqrt(STIFFNESS/DENSITY)
-        #             ),
-        #             XSPHCorrection(
-        #                 dest='object', 
-        #                 sources=['object'], 
-        #                 eps=0.5
-        #             )
-        #         ],
-        #         real=True
-        #     )
-        # ]
-        # return equations
     
     def pre_step(self, solver):
         current_time = solver.t
@@ -467,12 +362,12 @@ class DeformableObjectWithGrippers(Application):
         right_gripper = self.particle_arrays['right_gripper']
         
         # First phase: Close grippers (0-1s)
-        if current_time < 1.0:
+        if current_time < 0.3:
             left_gripper.x[:] += GRIPPER_SPEED * DT
             right_gripper.x[:] -= GRIPPER_SPEED * DT
         
         # Second phase: Lift grippers (1-3s)
-        elif current_time < 3.0:
+        elif current_time < 0.5:
             left_gripper.y[:] += GRIPPER_SPEED * DT
             right_gripper.y[:] += GRIPPER_SPEED * DT
             left_gripper.z[:] += GRIPPER_SPEED * DT 
