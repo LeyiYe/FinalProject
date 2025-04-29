@@ -59,6 +59,10 @@ class GraspDeformableBlock(Application):
         block.nu[:] = self.nu
         block.rho_ref[:] = self.rho0
         block.c0_ref[:] = self.c0
+        # Allocate velocity gradient arrays
+        for i in range(self.dim):
+            for j in range(self.dim):
+                block.add_property(f'v{i}{j}')
 
         # Rigid platform as boundary
         px, py, pz = self.create_block(
