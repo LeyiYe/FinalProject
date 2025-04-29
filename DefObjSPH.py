@@ -2,7 +2,7 @@ import numpy as np
 from pysph.base.utils import get_particle_array
 from pysph.solver.application import Application
 from pysph.sph.scheme import SchemeChooser
-from pysph.sph.solid_mech.basic import ElasticSolidScheme
+from pysph.sph.solid_mech.basic import ElasticSolidsScheme
 from pysph.sph.equation import Group, Gravity
 
 import os
@@ -83,7 +83,7 @@ class GraspDeformableBlock(Application):
 
     def create_scheme(self):
         # Elastic solid scheme handles HookesDeviatoricStressRate internally
-        elastic = ElasticSolidScheme(
+        elastic = ElasticSolidsScheme(
             solids=['block'],
             rigid_bodies=['platform', 'gripper1', 'gripper2'],
             dim=self.dim,
