@@ -25,7 +25,7 @@ class GraspDeformableBlock(Application):
         # Geometry dimensions (m)
         self.block_size = (0.3, 0.2, 0.1)
         self.platform_size = (1.0, 0.6, 0.02)
-        self.gripper_size = (0.05, 0.2, 0.1)
+        self.gripper_size = (0.05, 0.1, 0.2)
 
     def create_block(self, center, size):
         # Dynamic resolution
@@ -72,7 +72,7 @@ class GraspDeformableBlock(Application):
             x,y,z = self.create_block(center, size)
             pa = get_particle_array(
                 name=name, x=x, y=y, z=z,
-                h=self.hdx*self.dx, m=1e12, rho=self.rho0,
+                h=0.02*self.dx, m=1e12, rho=self.rho0,
                 is_boundary=1, is_rigid=1)
             # Mirror same extra fields
             for arr in (pa,):
