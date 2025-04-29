@@ -65,6 +65,8 @@ class GraspDeformableBlock(Application):
         block.add_property('d_idx'); block.add_property('d_au')
         block.add_property('d_av'); block.add_property('d_aw'); block.add_property('d_auhat')
         block.add_property('d_avhat'); block.add_property('d_awhat')
+        block.add_property('V'); block.add_property('auhat'); block.add_property('awhat')
+        block.add_property('avhat')
         # Allocate velocity gradient, artificial stress, and stress arrays
         for i in range(self.dim):
             for j in range(self.dim):
