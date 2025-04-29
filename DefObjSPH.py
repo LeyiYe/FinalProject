@@ -14,7 +14,7 @@ class GraspDeformableBlock(Application):
     def initialize(self):
         # Simulation parameters
         self.dim = 3
-        self.dx = 0.05                 # particle spacing
+        self.dx = 0.02                 # particle spacing
         self.hdx = 1.2                # smoothing length factor
         self.rho0 = 1000.0            # reference density (kg/m^3)
         self.E = 1e6                  # Young's modulus (Pa)
@@ -28,9 +28,9 @@ class GraspDeformableBlock(Application):
 
     def create_block(self, center, size):
         # Generate a regular grid of particles for a rectangular prism
-        nx = max(2, int(size[0] / self.dx))
-        ny = max(2, int(size[1] / self.dx))
-        nz = max(2, int(size[2] / self.dx))
+        nx = 30
+        ny = 10
+        nz = 5
         xs = np.linspace(center[0] - size[0] / 2 + self.dx/2,
                          center[0] + size[0] / 2 - self.dx/2, nx)
         ys = np.linspace(center[1] - size[1] / 2 + self.dx/2,
