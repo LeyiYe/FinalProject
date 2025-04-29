@@ -57,14 +57,20 @@ class GraspDeformableBlock(Application):
         block.add_property('c0_ref');  block.c0_ref[:] = self.c0
         # Shear modulus
         block.add_property('G');       block.G[:] = self.E/(2*(1+self.nu))
-        # Additional solid fields (required by scheme)
-        for prop in ['eo', 'ae', 'arho','as12', 'as22', 'as02', 'as11', 'as01', 'as00', 'ay', 'ax', 'az',
-                    'e', 'e0', 'rho0', 's000', 's010', 's020', 's110', 's120', 's220', 'u0', 'v0',
-                    'w0', 'x0', 'y0', 'z0', 'cs']:
-            block.add_property(prop)
-        block.arho[:] = 1.0/self.rho0
+                # Continuity tracer and viscosity properties
+        block.add_property('arho'); block.arho[:] = 1.0/self.rho0
+        block.add_property('cs');   block.cs[:]   = self.c0
+        # Stress (rij) and deviatoric stress (sij)
+        for i in range(self.dim):
+            for j in range(i, self.dim):
+                block.add_property(f'r{i}{j}'); block.add_property(f's{i}{j}')
+        # Velocity gradients vij
+        for i in range(self.dim):
+            for j in range(self.dim):
+                block.add_property(f'v{i}{j}')
+        # Pressure-rate and splitting tracer
+        block.add_property('wdeltap'); block.add_property('n')[:] = 1.0/self.rho0
 
-        # Initialize scheme properties (will add continuity, stress, viscosity fields)
         particles = [block]
 
         # Platform and grippers
@@ -77,8 +83,6 @@ class GraspDeformableBlock(Application):
             pa.add_property('arho', type='double', default=1.0/self.rho0)
             pa.add_property('cs', type='double', default=self.c0)
             pa.add_property('z0', type='double', default=pa.z.copy())
-
-            # Mirror same extra fields
             for i in range(self.dim):
                 for j in range(i, self.dim):
                     pa.add_property(f'r{i}{j}')
@@ -88,43 +92,11 @@ class GraspDeformableBlock(Application):
             pa.add_property('wdeltap'); pa.add_property('n')
             particles.append(pa)
             return pa
+
         platform = make_rigid('platform', (0,0,self.platform_size[2]/2), self.platform_size)
-        gripper1 = make_rigid('gripper1', (
-            -0.4, 0, self.platform_size[2] + self.gripper_size[2]/2), self.gripper_size)
-        gripper2 = make_rigid('gripper2', (
-             0.4, 0, self.platform_size[2] + self.gripper_size[2]/2), self.gripper_size)
+        gripper1 = make_rigid('gripper1', (-0.4, 0, self.platform_size[2] + self.gripper_size[2]/2), self.gripper_size)
+        gripper2 = make_rigid('gripper2', (0.4, 0, self.platform_size[2] + self.gripper_size[2]/2), self.gripper_size)
 
-                # Manually add any missing fields required by the solid scheme
-        for arr in particles:
-            # speed of sound tracer for artificial viscosity
-            if 'cs' not in arr.properties:
-                arr.add_property('cs'); arr.cs[:] = self.c0
-            # reciprocal density tracer for continuity
-            if 'arho' not in arr.properties:
-                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
-        for arr in particles:
-            # reciprocal density tracer for continuity
-            if 'arho' not in arr.properties:
-                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
-            # artificial stress components
-            for i in range(self.dim):
-                for j in range(i, self.dim):
-                    if f'r{i}{j}' not in arr.properties:
-                        arr.add_property(f'r{i}{j}')
-                    if f's{i}{j}' not in arr.properties:
-                        arr.add_property(f's{i}{j}')
-            # velocity gradients
-            for i in range(self.dim):
-                for j in range(self.dim):
-                    if f'v{i}{j}' not in arr.properties:
-                        arr.add_property(f'v{i}{j}')
-            # pressure-rate and splitting tracer
-            if 'wdeltap' not in arr.properties:
-                arr.add_property('wdeltap')
-            if 'n' not in arr.properties:
-                arr.add_property('n')
-
-        print("G-range", block.G.min(), block.G.max())
         return particles
 
     def create_scheme(self):
@@ -141,23 +113,20 @@ class GraspDeformableBlock(Application):
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        # Gravity on block
         eqns.append(Group(equations=[BodyForce(dest='block', sources=None,
                                                 fx=0, fy=0, fz=-9.81)],
                            real=False))
         return eqns
+
     def post_step(self, solver):
-        """
-        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
-        """
         block = self.particles[0]
         g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
-        # compute jaw target
+        
         half_block = 0.5*self.block_size[0]
         half_grip  = 0.5*self.gripper_size[0]
         target = -half_block - half_grip + 0.02
-        # approach until contact then lift
+
         if g1.x[0] < target:
             g1.u[:] =  0.2; g2.u[:] = -0.2
             g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
@@ -165,10 +134,10 @@ class GraspDeformableBlock(Application):
             g1.u[:] = g2.u[:] = 0
             g1.v[:] = g2.v[:] = 0
             g1.w[:] = g2.w[:] = 0.3
-        # integrate rigid bodies
+
         for gr in (g1, g2):
-            gr.x += gr.u * dt; gr.y += gr.v*dt; gr.z += gr.w*dt
-            gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
+            gr.x += gr.u * dt; gr.y += gr.v * dt; gr.z += gr.w * dt
+            gr.z0 += gr.w * dt
 
 if __name__=='__main__':
     app = GraspDeformableBlock()
