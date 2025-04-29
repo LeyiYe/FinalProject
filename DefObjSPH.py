@@ -125,7 +125,7 @@ class GraspDeformableBlock(Application):
         eqns = self.scheme.get_equations()
         #eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False))
         eqns.append(Group(
-            equations=[MomentumEquationPressureGradient(dest='block', sources=None, fx=0, fy=-9.81, fz=0)],
+            equations=[MomentumEquationPressureGradient(dest='block', sources=None, pb=self.c0*self.c0*self.rho0, gx=0, gy=-9.81, gz=0)],
             real=False
         ))
         return eqns
