@@ -160,10 +160,13 @@ class GraspDeformableBlock(Application):
             g1.u[:] =  0.2; g2.u[:] = -0.2
             g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
         else:
-            g1.u[:] = g2.u[:] = 0; g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0.3
+            g1.u[:] = g2.u[:] = 0
+            g1.v[:] = g2.v[:] = 0
+            g1.w[:] = g2.w[:] = 0.3
         # integrate rigid bodies
         for gr in (g1, g2):
-            gr.x += gr.u*dt; gr.y += gr.v*dt; gr.z += gr.w*dt
+            gr.x += gr.u * dt; gr.y += gr.v*dt; gr.z += gr.w*dt
+            gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
         # clamp block at floor but retain SPH deformation
         # zmin = self.platform_size[2] + 0.5*self.dx
         # mask = block.z < zmin
