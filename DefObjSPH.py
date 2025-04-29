@@ -56,6 +56,9 @@ class GraspDeformableBlock(Application):
         block.add_property('rho_ref')
         block.add_property('c0_ref')
         block.add_property('G')
+        block.add_property('ax')
+        block.add_property('ay')
+        block.add_property('az')
         block.E[:] = self.E
         block.nu[:] = self.nu
         block.rho_ref[:] = self.rho0
