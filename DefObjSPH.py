@@ -206,13 +206,7 @@ class GraspDeformableBlock(Application):
             block.z[mask] = floor_z
             block.u[mask] = 0.0
             block.v[mask] = 0.0
-            block.w[mask] = 0.0 = self.platform_size[2] + 0.5 * self.dx
-        mask = block.z < floor_z
-        if mask.any():
-            block.z[mask] = floor_z
-            block.u[mask] = 0.0
-            block.v[mask] = 0.0
-            block.w[mask] = 0.0
+            block.w[mask] = 0.0 
 
 if __name__ == '__main__':
     app = GraspDeformableBlock()
