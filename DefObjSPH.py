@@ -19,6 +19,7 @@ class GraspDeformableBlock(Application):
         self.rho0 = 1000.0            # reference density (kg/m^3)
         self.E = 1e6                  # Young's modulus (Pa)
         self.nu = 0.3                 # Poisson ratio
+        self.c0 = 50.0                # speed of sound for EOS
 
         # Geometry dimensions (m)
         self.block_size = (0.6, 0.2, 0.1)
@@ -49,11 +50,15 @@ class GraspDeformableBlock(Application):
                                    h=self.hdx * self.dx,
                                    m=self.dx**3 * self.rho0,
                                    rho=self.rho0)
-        # set material properties on block
+        # set material and EOS properties on block
         block.add_property('E')
         block.add_property('nu')
+        block.add_property('rho_ref')
+        block.add_property('c0_ref')
         block.E[:] = self.E
         block.nu[:] = self.nu
+        block.rho_ref[:] = self.rho0
+        block.c0_ref[:] = self.c0
 
         # Rigid platform as boundary
         px, py, pz = self.create_block(
