@@ -106,6 +106,7 @@ class GraspDeformableBlock(Application):
         # Allocate additional fields required by stress-based equations
         for arr in [block, platform, gripper1, gripper2]:
             # Reciprocal density tracer needed for continuity equation
+            arr.add_property('cs')
             if 'arho' not in arr.properties:
                 arr.add_property('arho')
                 arr.arho[:] = 1.0 / self.rho0
@@ -124,11 +125,7 @@ class GraspDeformableBlock(Application):
                         arr.add_property(prop_r)
                     if prop_s not in arr.properties:
                         arr.add_property(prop_s)
-        # Ensure inverse density for continuity (arho)
-        for arr in [block, platform, gripper1, gripper2]:
-            if 'arho' not in arr.properties:
-                arr.add_property('arho')
-            arr.arho[:] = 1.0/self.rho0
+
         return [block, platform, gripper1, gripper2] 
     def create_scheme(self):
         # ElasticSolidsScheme expects (elastic_solids, solids, dim)
