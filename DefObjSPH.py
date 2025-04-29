@@ -9,6 +9,7 @@ from pysph.sph.scheme import SchemeChooser
 from pysph.sph.solid_mech.basic import ElasticSolidsScheme
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import BodyForce
+from pysph.sph.wc.transport_velocity import MomentumEquationPressureGradient
 
 class GraspDeformableBlock(Application):
     def initialize(self):
@@ -55,12 +56,15 @@ class GraspDeformableBlock(Application):
         block.add_property('nu');      block.nu[:] = self.nu
         block.add_property('rho_ref'); block.rho_ref[:] = self.rho0
         block.add_property('c0_ref');  block.c0_ref[:] = self.c0
-        block.add_property('G');
+        block.add_property('G')
         block.add_property('ax'); block.add_property('ay'); block.add_property('az')
         block.add_property('e'); block.add_property('e0')
         block.add_property('rho0'); block.add_property('u0'); block.add_property('v0'); block.add_property('w0')
         block.add_property('x0'); block.add_property('y0'); block.add_property('z0')
         block.add_property('ae')
+        block.add_property('d_idx'); block.add_property('d_au')
+        block.add_property('d_av'); block.add_property('d_aw'); block.add_property('d_auhat')
+        block.add_property('d_avhat'); block.add_property('d_awhat')
         # Allocate velocity gradient, artificial stress, and stress arrays
         for i in range(self.dim):
             for j in range(self.dim):
@@ -119,7 +123,11 @@ class GraspDeformableBlock(Application):
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False))
+        #eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False))
+        eqns.append(Group(
+            equations=[MomentumEquationPressureGradient(dest='block', sources=None, fx=0, fy=-9.81, fz=0)],
+            real=False
+        ))
         return eqns
 
     def post_step(self, solver):
