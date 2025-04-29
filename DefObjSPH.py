@@ -111,6 +111,7 @@ class GraspDeformableBlock(Application):
             arr.add_property('n')
             # Pressure rate change for Monaghan & momentum update
             arr.add_property('wdeltap')
+            arr.add_property('cs')
             # Stress and artificial stress fields
             for i in range(self.dim):
                 for j in range(i, self.dim):
