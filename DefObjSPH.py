@@ -58,7 +58,9 @@ class GraspDeformableBlock(Application):
         # Shear modulus
         block.add_property('G');       block.G[:] = self.E/(2*(1+self.nu))
         # Additional solid fields (required by scheme)
-        for prop in ['eo', 'ae', 'arho','as12', 'as22', 'as02', 'as11', 'as01', 'as00', 'ay', 'ax', 'az']:
+        for prop in ['eo', 'ae', 'arho','as12', 'as22', 'as02', 'as11', 'as01', 'as00', 'ay', 'ax', 'az',
+                    'e', 'e0', 'rho0', 's000', 's010', 's020', 's110', 's120', 's220', 'u0', 'v0',
+                    'w0', 'x0', 'y0', 'z0']:
             block.add_property(prop)
         block.arho[:] = 1.0/self.rho0
 
