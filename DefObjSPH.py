@@ -17,8 +17,8 @@ class GraspDeformableBlock(Application):
         self.dx = 0.02                 # particle spacing
         self.hdx = 1.2                # smoothing length factor
         self.rho0 = 1000.0            # reference density (kg/m^3)
-        self.E = 1e6                  # Young's modulus (Pa)
-        self.nu = 0.3                 # Poisson ratio
+        self.E = 1e5                  # Young's modulus (Pa) — softer for rubber-like deformation
+        self.nu = 0.49                # Poisson ratio — near incompressible for rubber
         self.c0 = 50.0                # speed of sound for EOS
 
         # Geometry dimensions (m)
@@ -140,6 +140,7 @@ class GraspDeformableBlock(Application):
                         arr.add_property(prop_s)
 
         return [block, platform, gripper1, gripper2] 
+
     def create_scheme(self):
         # ElasticSolidsScheme expects (elastic_solids, solids, dim)
         elastic = ElasticSolidsScheme(
@@ -164,44 +165,51 @@ class GraspDeformableBlock(Application):
         )
         return eqns
 
-        
     def post_step(self, solver):
         """
-        Called after each time-step: update gripper motion, enforce floor, and move rigid bodies manually.
+        Called after each time-step: update gripper motion via position control, enforce floor, and integrate rigid bodies.
         """
-        t = solver.t
-        dt = solver.dt
-        # References to particle arrays
         block = self.particles[0]
         g1, g2 = self.particles[2], self.particles[3]
+        dt = solver.dt
 
-        # 1) Gripper motion: approach then lift
-        v_in, v_lift = 0.2, 0.3
-        if t < 0.5:
-            # move jaws inward
+        # Target approach position so gripper inner faces meet block edges
+        half_block = self.block_size[0] * 0.5
+        half_grip = self.gripper_size[0] * 0.5
+        target_pos = -half_block - half_grip  # -0.3 - 0.025 = -0.325
+
+        # 1) Position-based gripper approach and lift
+        v_in = 0.2
+        v_lift = 0.3
+        # Check left gripper: moving right if still outside target
+        if g1.x[0] > target_pos:
             g1.u[:] =  v_in
             g2.u[:] = -v_in
-            g1.v[:] = g2.v[:] = 0
-            g1.w[:] = g2.w[:] = 0
+            g1.v[:] = g2.v[:] = 0.0
+            g1.w[:] = g2.w[:] = 0.0
         else:
-            # lift upward
-            g1.u[:] = g2.u[:] = 0
-            g1.v[:] = g2.v[:] = 0
+            # Stop horizontal, start lifting
+            g1.u[:] = g2.u[:] = 0.0
+            g1.v[:] = g2.v[:] = 0.0
             g1.w[:] = g2.w[:] = v_lift
 
-        # 2) Update rigid-body positions manually
+        # 2) Integrate rigid-body motion manually
         for gr in (g1, g2):
             gr.x += gr.u * dt
             gr.y += gr.v * dt
             gr.z += gr.w * dt
 
-        # 3) Enforce floor: clamp block above platform surface
-        # platform thickness + half dx
-        z_floor = self.platform_size[2] + 0.5 * self.dx
-        mask = block.z < z_floor
+        # 3) Enforce floor: clamp block particles from going below platform
+        floor_z = self.platform_size[2] + 0.5 * self.dx
+        mask = block.z < floor_z
         if mask.any():
-            # reset positions and velocities
-            block.z[mask] = z_floor
+            block.z[mask] = floor_z
+            block.u[mask] = 0.0
+            block.v[mask] = 0.0
+            block.w[mask] = 0.0 = self.platform_size[2] + 0.5 * self.dx
+        mask = block.z < floor_z
+        if mask.any():
+            block.z[mask] = floor_z
             block.u[mask] = 0.0
             block.v[mask] = 0.0
             block.w[mask] = 0.0
