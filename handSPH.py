@@ -14,22 +14,19 @@ from pysph.sph.rigid_body      import RigidBodyWallCollision
 
 class GraspDeformableBlock(Application):
     def initialize(self):
-        # simulation params
         self.dim    = 3
         self.dx     = 0.01
         self.hdx    = 1.3
         self.rho0   = 1000.0
-        self.E      = 1e7      # block stiffness
+        self.E      = 1e7
         self.nu     = 0.49
         self.c0     = 50.0
 
-        # geometry (m)
         self.block_size    = (0.3, 0.2, 0.1)
         self.platform_size = (1.0, 0.6, 0.02)
         self.gripper_size  = (0.05, 0.1, 0.2)
 
     def create_block(self, center, size):
-        """Create a regular grid of points inside a box."""
         nx = max(3, int(round(size[0]/self.dx)))
         ny = max(3, int(round(size[1]/self.dx)))
         nz = max(3, int(round(size[2]/self.dx)))
@@ -43,10 +40,7 @@ class GraspDeformableBlock(Application):
         return x.ravel(), y.ravel(), z.ravel()
 
     def create_particles(self):
-        # ----------------------------------------------------------------------------
-        # 1) deformable block: use the helper to get exactly the fields needed by
-        #    ElasticSolidsScheme, then add the DEM‐collision fields for block–wall
-        # ----------------------------------------------------------------------------
+        # 1) deformable block
         bx, by, bz = self.create_block(
             center=(0, 0, self.platform_size[2] + self.block_size[2]/2),
             size=self.block_size
@@ -64,23 +58,29 @@ class GraspDeformableBlock(Application):
                 'c0_ref' : self.c0
             }
         )
-        # DEM‐contact extras on the block:
+
+        # 1a) DEM‐collision extras on the block
         block.add_property('rad_s', default=self.dx*0.5)
         for pname in ('tang_disp_x','tang_disp_y','tang_disp_z',
                       'tang_velocity_x','tang_velocity_y','tang_velocity_z'):
             block.add_property(pname, type='double', default=0.0)
 
-        # ----------------------------------------------------------------------------
-        # 2) rigid “walls”: platform and two gripper jaws
-        #    minimal SPH fields plus a constant normal vector for collision
-        # ----------------------------------------------------------------------------
+        # 1b) **** add the four arrays that RigidBodyWallCollision requires ****
+        block.add_property('fx',         type='double', default=0.0)
+        block.add_property('fy',         type='double', default=0.0)
+        block.add_property('fz',         type='double', default=0.0)
+        block.add_property('total_mass', type='double', default=0.0)
+        # now fill total_mass with the sum of all per-particle masses:
+        block.total_mass[:] = np.sum(block.m)
+
+        # 2) rigid “walls” (platform + two jaws)
         def make_wall(name, center, size, normal):
             x,y,z = self.create_block(center, size)
             pa = get_particle_array(
                 name=name,
                 x=x, y=y, z=z,
                 h=self.hdx*self.dx,
-                m=1e12,              # arbitrary large mass: walls won’t move
+                m=1e12,
                 rho=self.rho0,
                 is_boundary=1,
                 is_rigid=1,
@@ -88,7 +88,6 @@ class GraspDeformableBlock(Application):
                 cs=self.c0,
                 z0=z.copy()
             )
-            # set the wall‐normal on every particle
             pa.add_property('nx', type='double', default=normal[0])
             pa.add_property('ny', type='double', default=normal[1])
             pa.add_property('nz', type='double', default=normal[2])
@@ -98,21 +97,19 @@ class GraspDeformableBlock(Application):
             'platform',
             (0, 0, self.platform_size[2]/2),
             self.platform_size,
-            normal=(0,0,1)   # pointing up
+            normal=(0,0,1)
         )
         gripper1 = make_wall(
             'gripper1',
-            (-0.4, 0,
-             self.platform_size[2] + self.gripper_size[2]/2),
+            (-0.4, 0, self.platform_size[2] + self.gripper_size[2]/2),
             self.gripper_size,
-            normal=(1,0,0)   # left jaw faces +x
+            normal=( 1,0,0)
         )
         gripper2 = make_wall(
             'gripper2',
-            ( 0.4, 0,
-             self.platform_size[2] + self.gripper_size[2]/2),
+            ( 0.4, 0, self.platform_size[2] + self.gripper_size[2]/2),
             self.gripper_size,
-            normal=(-1,0,0)  # right jaw faces –x
+            normal=(-1,0,0)
         )
 
         return [block, platform, gripper1, gripper2]
@@ -120,7 +117,6 @@ class GraspDeformableBlock(Application):
     def create_scheme(self):
         elastic = ElasticSolidsScheme(
             elastic_solids=['block'],
-            # walls are *not* treated as elastic_solids here:
             solids=[],
             dim=self.dim,
             artificial_stress_eps=0.5,
@@ -133,24 +129,19 @@ class GraspDeformableBlock(Application):
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-
-        # 1) gravity on the block
+        # gravity on the block
         eqns.append(Group(equations=[
             BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)
         ], real=False))
-
-        # 2) DEM-style contact: block vs. each wall
-        #    kn=1e4 is a spring constant; mu=0.0 is frictionless; en=0.8 restitution.
+        # DEM‐wall collisions
         eqns.append(Group(equations=[
             RigidBodyWallCollision('block', ['platform'], kn=1e4, mu=0.0, en=0.8),
             RigidBodyWallCollision('block', ['gripper1'], kn=1e4, mu=0.0, en=0.8),
             RigidBodyWallCollision('block', ['gripper2'], kn=1e4, mu=0.0, en=0.8),
         ], real=False))
-
         return eqns
 
     def post_step(self, solver):
-        # same open/close logic you had:
         g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
         half_block = 0.5*self.block_size[0]
@@ -158,11 +149,9 @@ class GraspDeformableBlock(Application):
         target = -half_block - half_grip + 0.02
 
         if g1.x[0] < target:
-            # closing
             g1.u[:] =  0.2; g2.u[:] = -0.2
             g1.w[:] = g2.w[:] = 0.0
         else:
-            # lifting
             g1.u[:] = g2.u[:] = 0.0
             g1.w[:] = g2.w[:] = 0.3
 
