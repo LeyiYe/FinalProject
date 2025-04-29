@@ -335,8 +335,8 @@ class DeformableObjectWithGrippers(Application):
                         beta=BETA,
                         c0=np.sqrt(STIFFNESS/DENSITY),
                         gx=0.0,
-                        gy=-9.81,
-                        gz=0.0,
+                        gy=0.0,
+                        gz=-9.81,
                         tensile_correction=True
                     )
                 ],
@@ -354,36 +354,57 @@ class DeformableObjectWithGrippers(Application):
         return equations
 
     
-    def pre_step(self, solver):
-        current_time = solver.t
+    # def pre_step(self, solver):
+    #     current_time = solver.t
         
-        # Control gripper movement
-        left_gripper = self.particle_arrays['left_gripper']
-        right_gripper = self.particle_arrays['right_gripper']
+    #     # Control gripper movement
+    #     left_gripper = self.particle_arrays['left_gripper']
+    #     right_gripper = self.particle_arrays['right_gripper']
         
-        # First phase: Close grippers (0-1s)
-        if current_time < 0.3:
-            left_gripper.x[:] += GRIPPER_SPEED * DT
-            right_gripper.x[:] -= GRIPPER_SPEED * DT
+    #     # First phase: Close grippers (0-1s)
+    #     if current_time < 0.3:
+    #         left_gripper.x[:] += GRIPPER_SPEED * DT
+    #         right_gripper.x[:] -= GRIPPER_SPEED * DT
         
-        # Second phase: Lift grippers (1-3s)
-        elif current_time < 0.5:
-            left_gripper.y[:] += GRIPPER_SPEED * DT
-            right_gripper.y[:] += GRIPPER_SPEED * DT
-            left_gripper.z[:] += GRIPPER_SPEED * DT 
-            right_gripper.z[:] += GRIPPER_SPEED * DT
+    #     # Second phase: Lift grippers (1-3s)
+    #     elif current_time < 0.5:
+    #         left_gripper.y[:] += GRIPPER_SPEED * DT
+    #         right_gripper.y[:] += GRIPPER_SPEED * DT
+    #         left_gripper.z[:] += GRIPPER_SPEED * DT 
+    #         right_gripper.z[:] += GRIPPER_SPEED * DT
         
-        # Update velocities for visualization
-        left_gripper.u[:] = GRIPPER_SPEED if current_time < 1.0 else 0.0
-        left_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
-        right_gripper.u[:] = -GRIPPER_SPEED if current_time < 1.0 else 0.0
-        right_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
-        left_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
-        right_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
+    #     # Update velocities for visualization
+    #     left_gripper.u[:] = GRIPPER_SPEED if current_time < 1.0 else 0.0
+    #     left_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
+    #     right_gripper.u[:] = -GRIPPER_SPEED if current_time < 1.0 else 0.0
+    #     right_gripper.v[:] = 0.0 if current_time < 1.0 else GRIPPER_SPEED
+    #     left_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
+    #     right_gripper.w[:] = GRIPPER_SPEED if current_time < 3.0 else 0.0
         
     
     def post_step(self, solver):
-        pass
+        """
+        After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
+        """
+        block = self.particles[0]
+        g1, g2 = self.particles[2], self.particles[3]
+        dt = solver.dt
+        # compute jaw target
+        half_block = 0.5*self.block_size[0]
+        half_grip  = 0.5*self.gripper_size[0]
+        target = -half_block - half_grip + 0.02
+        # approach until contact then lift
+        if g1.x[0] < target:
+            g1.u[:] =  0.2; g2.u[:] = -0.2
+            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
+        else:
+            g1.u[:] = g2.u[:] = 0
+            g1.v[:] = g2.v[:] = 0
+            g1.w[:] = g2.w[:] = 0.3
+        # integrate rigid bodies
+        for gr in (g1, g2):
+            gr.x += gr.u * dt; gr.y += gr.v*dt; gr.z += gr.w*dt
+            gr.z  += gr.w * dt;  gr.z0 += gr.w * dt
     
     def post_process(self):
         pass
