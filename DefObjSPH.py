@@ -55,12 +55,10 @@ class GraspDeformableBlock(Application):
         block.add_property('nu')
         block.add_property('rho_ref')
         block.add_property('c0_ref')
-        block.add_property('arho')
         block.E[:] = self.E
         block.nu[:] = self.nu
         block.rho_ref[:] = self.rho0
         block.c0_ref[:] = self.c0
-        block.arho[:] = 1.0 / self.rho0
         # Allocate velocity gradient arrays (v_ij) for scheme
         for i in range(self.dim):
             for j in range(self.dim):
@@ -105,6 +103,21 @@ class GraspDeformableBlock(Application):
                                       m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
 
+        # Allocate additional fields required by stress-based equations
+        for arr in [block, platform, gripper1, gripper2]:
+            # Nyquist field for particle splitting
+            arr.add_property('n')
+            # Pressure rate change for Monaghan & momentum update
+            arr.add_property('wdeltap')
+            # Stress and artificial stress fields
+            for i in range(self.dim):
+                for j in range(i, self.dim):
+                    prop_r = f'r{i}{j}'
+                    prop_s = f's{i}{j}'
+                    if prop_r not in arr.properties:
+                        arr.add_property(prop_r)
+                    if prop_s not in arr.properties:
+                        arr.add_property(prop_s)
         return [block, platform, gripper1, gripper2]
 
     def create_scheme(self):
