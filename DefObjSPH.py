@@ -60,6 +60,11 @@ class GraspDeformableBlock(Application):
                 # Continuity tracer and viscosity properties
         block.add_property('arho'); block.arho[:] = 1.0/self.rho0
         block.add_property('cs');   block.cs[:]   = self.c0
+
+        for arr in ['as22', 'as22', 'as12','as00', 'as11', 'as01']:
+            block.add_property(arr)
+            
+
         # Stress (rij) and deviatoric stress (sij)
         for i in range(self.dim):
             for j in range(i, self.dim):
