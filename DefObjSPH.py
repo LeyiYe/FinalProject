@@ -10,7 +10,6 @@ from pysph.sph.scheme import SchemeChooser
 from pysph.sph.solid_mech.basic import ElasticSolidsScheme
 from pysph.sph.equation import Group
 from pysph.sph.basic_equations import BodyForce
-from pysph.sph.wc.transport_velocity import MomentumEquationPressureGradient
 
 class GraspDeformableBlock(Application):
     def initialize(self):
@@ -30,9 +29,10 @@ class GraspDeformableBlock(Application):
 
     def create_block(self, center, size):
         # Generate a regular grid of particles for a rectangular prism
-        nx = 30
-        ny = 10
-        nz = 5
+        # Use dynamic resolution based on dx to preserve block shape
+        nx = max(3, int(round(size[0] / self.dx)))
+        ny = max(3, int(round(size[1] / self.dx)))
+        nz = max(3, int(round(size[2] / self.dx)))
         xs = np.linspace(center[0] - size[0] / 2 + self.dx/2,
                          center[0] + size[0] / 2 - self.dx/2, nx)
         ys = np.linspace(center[1] - size[1] / 2 + self.dx/2,
@@ -63,11 +63,6 @@ class GraspDeformableBlock(Application):
         block.add_property('rho0'); block.add_property('u0'); block.add_property('v0'); block.add_property('w0')
         block.add_property('x0'); block.add_property('y0'); block.add_property('z0')
         block.add_property('ae')
-        block.add_property('d_idx'); block.add_property('d_au')
-        block.add_property('d_av'); block.add_property('d_aw'); block.add_property('d_auhat')
-        block.add_property('d_avhat'); block.add_property('d_awhat')
-        block.add_property('V'); block.add_property('auhat'); block.add_property('awhat')
-        block.add_property('avhat')
         # Allocate velocity gradient, artificial stress, and stress arrays
         for i in range(self.dim):
             for j in range(self.dim):
@@ -126,13 +121,9 @@ class GraspDeformableBlock(Application):
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        eqns.append(
-            Group(equations=[
-                BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)
-            ], real=False)
-        )
+        eqns.append(Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False))
         return eqns
-    
+
     def post_step(self, solver):
         """
         After each step: move grippers by position-control and clamp block bottom but allow SPH compression.
@@ -143,7 +134,7 @@ class GraspDeformableBlock(Application):
         # compute jaw target
         half_block = 0.5*self.block_size[0]
         half_grip  = 0.5*self.gripper_size[0]
-        target = -half_block - half_grip
+        target = -half_block - half_grip -0.01
         # approach until contact then lift
         if g1.x[0] < target:
             g1.u[:] =  0.2; g2.u[:] = -0.2
