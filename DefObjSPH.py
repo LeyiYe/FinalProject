@@ -134,7 +134,7 @@ class GraspDeformableBlock(Application):
         # compute jaw target
         half_block = 0.5*self.block_size[0]
         half_grip  = 0.5*self.gripper_size[0]
-        target = -half_block - half_grip -0.01
+        target = -half_block - half_grip -0.02
         # approach until contact then lift
         if g1.x[0] < target:
             g1.u[:] =  0.2; g2.u[:] = -0.2
