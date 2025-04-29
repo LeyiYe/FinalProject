@@ -108,7 +108,7 @@ class GraspDeformableBlock(Application):
         return SchemeChooser(default='elastic', elastic=elastic)
 
     def configure_scheme(self):
-        self.scheme.configure_solver(dt=5e-3, tf=2.0, pfreq=50)
+        self.scheme.configure_solver(dt=5e-5, tf=2.0, pfreq=50)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
