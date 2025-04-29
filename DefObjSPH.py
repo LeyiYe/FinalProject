@@ -19,7 +19,6 @@ class GraspDeformableBlock(Application):
         self.rho0 = 1000.0            # reference density (kg/m^3)
         self.E = 1e6                  # Young's modulus (Pa)
         self.nu = 0.3                 # Poisson ratio
-        self.c0 = 50.0                # artificial speed of sound for stability
 
         # Geometry dimensions (m)
         self.block_size = (0.6, 0.2, 0.1)
@@ -50,6 +49,11 @@ class GraspDeformableBlock(Application):
                                    h=self.hdx * self.dx,
                                    m=self.dx**3 * self.rho0,
                                    rho=self.rho0)
+        # set material properties on block
+        block.add_property('E')
+        block.add_property('nu')
+        block.E[:] = self.E
+        block.nu[:] = self.nu
 
         # Rigid platform as boundary
         px, py, pz = self.create_block(
@@ -84,50 +88,43 @@ class GraspDeformableBlock(Application):
         return [block, platform, gripper1, gripper2]
 
     def create_scheme(self):
-        # Elastic solid scheme handles HookesDeviatoricStressRate internally
+        # ElasticSolidsScheme expects (elastic_solids, solids, dim)
         elastic = ElasticSolidsScheme(
-            solids=['block'],
-            rigid_bodies=['platform', 'gripper1', 'gripper2'],
-            dim=self.dim,
-            rho0=self.rho0,
-            c0=self.c0,
-            h0=self.hdx * self.dx,
-            E=self.E,
-            nu=self.nu
+            elastic_solids=['block'],
+            solids=['platform', 'gripper1', 'gripper2'],
+            dim=self.dim
         )
         return SchemeChooser(default='elastic', elastic=elastic)
 
     def configure_scheme(self):
-        # Timestep and final time
         self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=100)
 
     def create_equations(self):
-        # Use the scheme's predefined equations for solid mechanics and contact
-        eqns = self.scheme.get_equations()
-        # Add gravity as a body force on the deformable block
+        eqns = []
+        # Hooke's law via deviatoric stress rate
+        from pysph.sph.solid_mech.basic import HookesDeviatoricStressRate, ContinuityEquation
+        eqns.append(Group(
+            equations=[
+                ContinuityEquation(dest='block', sources=['block']),
+                HookesDeviatoricStressRate(dest='block', sources=['block']),
+                # Contact forces between block and rigid bodies
+            ],
+            real=True
+        ))
+        # Add gravity
         eqns.append(
-            Group(
-                equations=[BodyForce(dest='block', sources=None, fx=0.0, fy=0.0, fz=-9.81)],
-                real=False
-            )
+            Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False)
         )
         return eqns
 
     def post_step(self, solver):
         t = solver.t
-        # Gripper motion: approach until t=0.5s, then lift
-        v_in = 0.2
-        v_lift = 0.3
-        g1 = self.particles[2]
-        g2 = self.particles[3]
+        v_in, v_lift = 0.2, 0.3
+        g1, g2 = self.particles[2], self.particles[3]
         if t < 0.5:
-            # Move horizontally inward
-            g1.u[:] = v_in
-            g2.u[:] = -v_in
-            g1.v[:] = g2.v[:] = 0
-            g1.w[:] = g2.w[:] = 0
+            g1.u[:] = v_in;    g2.u[:] = -v_in
+            g1.v[:] = g2.v[:] = 0; g1.w[:] = g2.w[:] = 0
         else:
-            # Lift upwards
             g1.u[:] = g2.u[:] = 0
             g1.v[:] = g2.v[:] = 0
             g1.w[:] = g2.w[:] = v_lift
