@@ -49,18 +49,11 @@ class GraspDeformableBlock(Application):
                                    h=self.hdx * self.dx,
                                    m=self.dx**3 * self.rho0,
                                    rho=self.rho0)
-        
-
         # set material properties on block
         block.add_property('E')
         block.add_property('nu')
-        block.add_property('arho')
-
         block.E[:] = self.E
         block.nu[:] = self.nu
-        block.arho[:] = self.rho0
-
-
 
         # Rigid platform as boundary
         px, py, pz = self.create_block(
@@ -107,21 +100,14 @@ class GraspDeformableBlock(Application):
         self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=100)
 
     def create_equations(self):
-        eqns = []
-        # Hooke's law via deviatoric stress rate
-        from pysph.sph.basic_equations import ContinuityEquation
-        from pysph.sph.solid_mech.basic import HookesDeviatoricStressRate
-        eqns.append(Group(
-            equations=[
-                ContinuityEquation(dest='block', sources=['block']),
-                HookesDeviatoricStressRate(dest='block', sources=['block']),
-                # Contact forces between block and rigid bodies
-            ],
-            real=True
-        ))
-        # Add gravity
+        # Use the scheme's predefined solid mechanics + contact equations
+        eqns = self.scheme.get_equations()
+        # Add gravity as a body force on the deformable block
         eqns.append(
-            Group(equations=[BodyForce(dest='block', sources=None, fx=0, fy=0, fz=-9.81)], real=False)
+            Group(
+                equations=[BodyForce(dest='block', sources=None, fx=0.0, fy=0.0, fz=-9.81)],
+                real=False
+            )
         )
         return eqns
 
