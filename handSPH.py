@@ -127,7 +127,7 @@ class GraspDeformableBlock(Application):
 
     def configure_scheme(self):
         # DEM‐stable timestep
-        self.scheme.configure_solver(dt=2e-5, tf=2.0, pfreq=50)
+        self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=50)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
@@ -138,9 +138,10 @@ class GraspDeformableBlock(Application):
         ], real=False))
         # DEM wall collisions
         eqns.append(Group(equations=[
-            RigidBodyWallCollision('block', ['platform'], kn=1e4, mu=0.2, en=0.8),
-            RigidBodyWallCollision('block', ['gripper1'], kn=1e4, mu=0.2, en=0.8),
-            RigidBodyWallCollision('block', ['gripper2'], kn=1e4, mu=0.2, en=0.8),
+            # soften the contact springs to kn=1e3
+            RigidBodyWallCollision('block', ['platform'], kn=1e3, mu=0.2, en=0.8),
+            RigidBodyWallCollision('block', ['gripper1'], kn=1e3, mu=0.2, en=0.8),
+            RigidBodyWallCollision('block', ['gripper2'], kn=1e3, mu=0.2, en=0.8),
         ], real=False))
         return eqns
 
