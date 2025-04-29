@@ -1,6 +1,7 @@
 import os
 # Disable Cython JIT compilation to avoid build errors
 os.environ['PYSPH_DISABLE_CYTHON'] = '1'
+os.environ['PYSPH_USE_PUREPYTHON'] = '1'
 
 import numpy as np
 from pysph.base.utils import get_particle_array
