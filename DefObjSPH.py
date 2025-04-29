@@ -59,6 +59,15 @@ class GraspDeformableBlock(Application):
         block.nu[:] = self.nu
         block.rho_ref[:] = self.rho0
         block.c0_ref[:] = self.c0
+        # Allocate velocity gradient arrays (v_ij) for scheme
+        for i in range(self.dim):
+            for j in range(self.dim):
+                block.add_property(f'v{i}{j}')
+        # Allocate stress and rotation arrays for MonaghanArtificialStress
+        for i in range(self.dim):
+            for j in range(i, self.dim):
+                block.add_property(f'r{i}{j}')
+                block.add_property(f's{i}{j}')
         # Allocate velocity gradient arrays
         for i in range(self.dim):
             for j in range(self.dim):
