@@ -41,7 +41,7 @@ class GraspDeformableBlock(Application):
         return x.ravel(), y.ravel(), z.ravel()
 
     def create_particles(self):
-        # Deformable block particles
+        # Create particle arrays for block and boundaries
         bx, by, bz = self.create_block(
             center=(0.0, 0.0, self.platform_size[2] + self.block_size[2]/2),
             size=self.block_size
@@ -50,34 +50,9 @@ class GraspDeformableBlock(Application):
                                    h=self.hdx * self.dx,
                                    m=self.dx**3 * self.rho0,
                                    rho=self.rho0)
-        # set material and EOS properties on block
-        block.add_property('E')
-        block.add_property('nu')
-        block.add_property('rho_ref')
-        block.add_property('c0_ref')
-        block.add_property('arho')
-        block.E[:] = self.E
-        block.nu[:] = self.nu
-        block.rho_ref[:] = self.rho0
-        block.c0_ref[:] = self.c0
-        block.arho[:] = 1.0 / self.rho0
-        # Allocate velocity gradient arrays (v_ij) for scheme
-        for i in range(self.dim):
-            for j in range(self.dim):
-                block.add_property(f'v{i}{j}')
-        # Allocate stress and rotation arrays for MonaghanArtificialStress
-        for i in range(self.dim):
-            for j in range(i, self.dim):
-                block.add_property(f'r{i}{j}')
-                block.add_property(f's{i}{j}')
-        # Allocate velocity gradient arrays
-        for i in range(self.dim):
-            for j in range(self.dim):
-                block.add_property(f'v{i}{j}')
 
-        # Rigid platform as boundary
         px, py, pz = self.create_block(
-            center=(0.0, 0.0, self.platform_size[2] / 2),
+            center=(0.0, 0.0, self.platform_size[2]/2),
             size=self.platform_size
         )
         platform = get_particle_array(name='platform', x=px, y=py, z=pz,
@@ -85,7 +60,6 @@ class GraspDeformableBlock(Application):
                                       m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
 
-        # Left gripper (rigid)
         g1x, g1y, g1z = self.create_block(
             center=(-0.4, 0.0, self.platform_size[2] + self.gripper_size[2]/2),
             size=self.gripper_size
@@ -95,7 +69,6 @@ class GraspDeformableBlock(Application):
                                       m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
 
-        # Right gripper (rigid)
         g2x, g2y, g2z = self.create_block(
             center=(0.4, 0.0, self.platform_size[2] + self.gripper_size[2]/2),
             size=self.gripper_size
@@ -105,26 +78,14 @@ class GraspDeformableBlock(Application):
                                       m=1e12, rho=self.rho0,
                                       is_boundary=1, is_rigid=1)
 
-        # Allocate additional fields required by stress-based equations
-        for arr in [block, platform, gripper1, gripper2]:
-            # Nyquist field for particle splitting
-            arr.add_property('n')
-            # Pressure rate change for Monaghan & momentum update
-            arr.add_property('wdeltap')
-            arr.add_property('cs')
-            # Stress and artificial stress fields
-            for i in range(self.dim):
-                for j in range(i, self.dim):
-                    prop_r = f'r{i}{j}'
-                    prop_s = f's{i}{j}'
-                    if prop_r not in arr.properties:
-                        arr.add_property(prop_r)
-                    if prop_s not in arr.properties:
-                        arr.add_property(prop_s)
-        return [block, platform, gripper1, gripper2]
+        # Use scheme to add all needed properties
+        particles = [block, platform, gripper1, gripper2]
+        self.scheme.setup_properties(particles, clean=False)
+
+        return particles
 
     def create_scheme(self):
-        # ElasticSolidsScheme expects (elastic_solids, solids, dim)
+            # ElasticSolidsScheme expects (elastic_solids, solids, dim)
         elastic = ElasticSolidsScheme(
             elastic_solids=['block'],
             solids=['platform', 'gripper1', 'gripper2'],
