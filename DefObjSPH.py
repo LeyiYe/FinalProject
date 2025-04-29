@@ -80,6 +80,13 @@ class GraspDeformableBlock(Application):
 
                 # Manually add any missing fields required by the solid scheme
         for arr in particles:
+            # speed of sound tracer for artificial viscosity
+            if 'cs' not in arr.properties:
+                arr.add_property('cs'); arr.cs[:] = self.c0
+            # reciprocal density tracer for continuity
+            if 'arho' not in arr.properties:
+                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
+        for arr in particles:
             # reciprocal density tracer for continuity
             if 'arho' not in arr.properties:
                 arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
