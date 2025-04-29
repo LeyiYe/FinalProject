@@ -78,8 +78,28 @@ class GraspDeformableBlock(Application):
         g1 = make_rigid('gripper1', (-0.4,0,self.platform_size[2]+self.gripper_size[2]/2), self.gripper_size)
         g2 = make_rigid('gripper2', ( 0.4,0,self.platform_size[2]+self.gripper_size[2]/2), self.gripper_size)
 
-        # Scheme adds required arrays for stress/compression
-        self.scheme.setup_properties(particles, clean=False)
+                # Manually add any missing fields required by the solid scheme
+        for arr in particles:
+            # reciprocal density tracer for continuity
+            if 'arho' not in arr.properties:
+                arr.add_property('arho'); arr.arho[:] = 1.0/self.rho0
+            # artificial stress components
+            for i in range(self.dim):
+                for j in range(i, self.dim):
+                    if f'r{i}{j}' not in arr.properties:
+                        arr.add_property(f'r{i}{j}')
+                    if f's{i}{j}' not in arr.properties:
+                        arr.add_property(f's{i}{j}')
+            # velocity gradients
+            for i in range(self.dim):
+                for j in range(self.dim):
+                    if f'v{i}{j}' not in arr.properties:
+                        arr.add_property(f'v{i}{j}')
+            # pressure-rate and splitting tracer
+            if 'wdeltap' not in arr.properties:
+                arr.add_property('wdeltap')
+            if 'n' not in arr.properties:
+                arr.add_property('n')
         return particles
 
     def create_scheme(self):
