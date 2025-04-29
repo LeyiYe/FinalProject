@@ -167,28 +167,30 @@ class GraspDeformableBlock(Application):
 
     def post_step(self, solver):
         """
-        Called after each time-step: update gripper motion via position control, enforce floor, and integrate rigid bodies.
+        Called after each time-step: update gripper motion via position control,
+        integrate rigid bodies, and let SPH contact handle block compression.
         """
+        import numpy as _np
         block = self.particles[0]
         g1, g2 = self.particles[2], self.particles[3]
         dt = solver.dt
 
-        # Target approach position so gripper inner faces meet block edges
-        half_block = self.block_size[0] * 0.5
-        half_grip = self.gripper_size[0] * 0.5
-        target_pos = -half_block - half_grip  # -0.3 - 0.025 = -0.325
+        # Compute target jaw position: inner faces should meet block edges
+        half_block = 0.5 * self.block_size[0]
+        half_grip = 0.5 * self.gripper_size[0]
+        target_pos = -half_block - half_grip
 
-        # 1) Position-based gripper approach and lift
+        # 1) Position-based gripper approach
         v_in = 0.2
         v_lift = 0.3
-        # Check left gripper: moving right if still outside target
-        if g1.x[0] > target_pos:
+        if g1.x[0] < target_pos:
+            # approach
             g1.u[:] =  v_in
             g2.u[:] = -v_in
             g1.v[:] = g2.v[:] = 0.0
             g1.w[:] = g2.w[:] = 0.0
         else:
-            # Stop horizontal, start lifting
+            # lift
             g1.u[:] = g2.u[:] = 0.0
             g1.v[:] = g2.v[:] = 0.0
             g1.w[:] = g2.w[:] = v_lift
@@ -199,14 +201,13 @@ class GraspDeformableBlock(Application):
             gr.y += gr.v * dt
             gr.z += gr.w * dt
 
-        # 3) Enforce floor: clamp block particles from going below platform
-        floor_z = self.platform_size[2] + 0.5 * self.dx
-        mask = block.z < floor_z
-        if mask.any():
-            block.z[mask] = floor_z
-            block.u[mask] = 0.0
-            block.v[mask] = 0.0
-            block.w[mask] = 0.0 
+        # 3) Allow SPH contact to compress block naturally
+        # You can still prevent slight penetration by clamping minimally
+        min_z = self.platform_size[2] + 0.5 * self.dx
+        # clamp positions
+        block.z[:] = _np.maximum(block.z, min_z)
+        # ensure no downward velocity when clamped
+        block.w[:] = _np.where(block.z <= min_z, _np.maximum(block.w, 0.0), block.w)
 
 if __name__ == '__main__':
     app = GraspDeformableBlock()
