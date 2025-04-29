@@ -2,7 +2,7 @@ import numpy as np
 from pysph.base.utils import get_particle_array
 from pysph.solver.application import Application
 from pysph.sph.scheme import SchemeChooser
-from pysph.sph.scheme import ElasticSolidScheme
+from pysph.sph.solid_mech.basic import ElasticSolidScheme
 from pysph.sph.equation import Group, Gravity
 
 import os
