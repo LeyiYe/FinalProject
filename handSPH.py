@@ -133,14 +133,15 @@ class GraspDeformableBlock(Application):
 
     def create_scheme(self):
         from pysph.sph.solid_mech.basic import ElasticSolidsScheme
+        # tune internal stabilization: more XSPH smoothing helps preserve shape
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'],
             solids=[],
             dim=self.dim,
             artificial_stress_eps=0.5,
-            xsph_eps=0.5
+            xsph_eps=0.9  # increased smoothing
         )
-        return SchemeChooser(default='elastic', elastic=scheme)
+        return SchemeChooser(default='elastic', elastic=scheme)(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
         self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=200)
@@ -171,13 +172,16 @@ class GraspDeformableBlock(Application):
             ], real=False, update_nnps=True
         ))
 
-        # Force conversion
+                # Force conversion
         eqns.append(Group(
             equations=[ForceToAcceleration(dest='block')], real=False
         ))
 
-                # (5) light internal damping via xsph_eps in the scheme handles stability
-        # remove global viscous damping to allow elastic recovery
+        # (6) gentle viscous damping to remove high‑frequency noise while allowing elastic recovery
+        eqns.append(Group(
+            equations=[ViscousDamping(dest='block', alpha=1.0)], real=False
+        ))
+
         return eqns
 
 
