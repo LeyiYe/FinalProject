@@ -125,7 +125,7 @@ class GraspDeformableBlock(Application):
         # Include rigid bodies in neighbor list
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'],
-            solids=['platform','gripper1','gripper2'],
+            solids=[],
             dim=self.dim,
             artificial_stress_eps=0.5,
             xsph_eps=0.5
