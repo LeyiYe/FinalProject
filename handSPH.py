@@ -19,14 +19,14 @@ class GraspDeformableBlock(Application):
         self.hdx    = 1.3
         self.rho0   = 1000.0
 
-        # rubber‐like block material
-        self.Eb = 1e7
-        self.nu = 0.49
-        self.c0 = 50.0
+        # rubber‐like block
+        self.E_block = 1e7
+        self.nu      = 0.49
+        self.c0      = 50.0
 
         # geometry (m)
         self.block_size    = (0.3, 0.2, 0.1)
-        self.platform_size = (1.0, 0.6, 0.04)   # 4 layers @ dx=0.01
+        self.platform_size = (1.0, 0.6, 0.04)   # 4 layers at dx=0.01
         self.gripper_size  = (0.05, 0.1, 0.2)
 
     def create_box(self, center, size):
@@ -55,14 +55,14 @@ class GraspDeformableBlock(Application):
             m=self.dx**3 * self.rho0,
             rho=self.rho0,
             constants={
-                'E':       self.Eb,
+                'E':       self.E_block,
                 'nu':      self.nu,
                 'rho_ref': self.rho0,
                 'c0_ref':  self.c0
             }
         )
 
-        # 2) Platform and grippers as "rigid" via the solids list
+        # 2) Platform & grippers as "rigid" elastic solids
         def make_rigid(name, center, size):
             x, y, z = self.create_box(center, size)
             pa = get_particle_array_elastic_dynamics(
@@ -72,13 +72,15 @@ class GraspDeformableBlock(Application):
                 m=self.dx**3 * self.rho0 * 1e3,   # heavy
                 rho=self.rho0,
                 constants={
-                    'E':       1e9,    # stiff (1 GPa)
+                    'E':       1e9,    # stiff (1 GPa)
                     'nu':      self.nu,
                     'rho_ref': self.rho0,
                     'c0_ref':  self.c0
                 }
             )
-            # mark as rigid & boundary
+            # mark as rigid boundary
+            pa.add_property('is_boundary', type='int')
+            pa.add_property('is_rigid',   type='int')
             pa.is_boundary[:] = 1
             pa.is_rigid[:]   = 1
             return pa
@@ -88,25 +90,26 @@ class GraspDeformableBlock(Application):
             (0, 0, self.platform_size[2]/2),
             self.platform_size
         )
-        gr1 = make_rigid(
+        gripper1 = make_rigid(
             'gripper1',
             (-0.4, 0,
              self.platform_size[2] + 0.5*self.gripper_size[2]),
             self.gripper_size
         )
-        gr2 = make_rigid(
+        gripper2 = make_rigid(
             'gripper2',
             ( 0.4, 0,
              self.platform_size[2] + 0.5*self.gripper_size[2]),
             self.gripper_size
         )
-        # keep handles for post_step
-        self.gr1, self.gr2 = gr1, gr2
 
-        return [block, platform, gr1, gr2]
+        # keep handles for post_step
+        self.gr1, self.gr2 = gripper1, gripper2
+
+        return [block, platform, gripper1, gripper2]
 
     def create_scheme(self):
-        # block is elastic, platform & jaws are rigid solids
+        # Only 'block' deforms; platform & grippers are treated as rigid solids
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'],
             solids=['platform','gripper1','gripper2'],
@@ -117,12 +120,11 @@ class GraspDeformableBlock(Application):
         return SchemeChooser(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
-        # reasonable dt for stability + fewer outputs
         self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=100)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        # gravity on block
+        # gravity on block only
         eqns.append(Group(equations=[
             BodyForce(dest='block', sources=None,
                       fx=0, fy=0, fz=-9.81)
@@ -130,17 +132,15 @@ class GraspDeformableBlock(Application):
         return eqns
 
     def post_step(self, solver):
-        # only assign jaw velocities; do NOT move x/y/z by hand
+        # Only assign jaw velocities; the integrator moves them
         g1, g2 = self.gr1, self.gr2
-        dt      = solver.dt
 
         half_b = 0.5*self.block_size[0]
         half_g = 0.5*self.gripper_size[0]
-        # pinch 1 cm, then lift
-        target = -half_b - half_g + 0.01
+        target = -half_b - half_g + 0.01  # 1 cm overlap
 
+        # pinch slowly so you see deformation
         if g1.x[0] < target:
-            # slow pinch (0.02 m/s) so you see deformation
             g1.u[:] =  0.02
             g2.u[:] = -0.02
             g1.w[:] = g2.w[:] = 0.0
