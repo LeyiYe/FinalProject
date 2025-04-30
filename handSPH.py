@@ -6,7 +6,8 @@ from pysph.solver.application   import Application
 from pysph.sph.scheme           import SchemeChooser
 from pysph.sph.solid_mech.basic import get_particle_array_elastic_dynamics
 from pysph.sph.equation         import Equation, Group
-from pysph.sph.basic_equations  import BodyForce  # using built-in BodyForce with fx,fy,fz parameters
+from pysph.sph.basic_equations import BodyForce
+from pysph.sph.rigid_body       import RigidBodyWallCollision
 # import BodyForce  <-- removed
 # no custom gravity needed; use built-in BodyForce       import RigidBodyWallCollision
 
@@ -143,11 +144,10 @@ class GraspDeformableBlock(Application):
 
         # optional gravity to settle block first
         if self.gravity_enabled:
-            eqns.append(
-                Group(equations=[BodyForce(dest='block', sources=None,
-                                        fx=0.0, fy=0.0, fz=-9.81)],
-                    real=False)
-            )
+            eqns.append(Group(
+                equations=[Gravity(dest='block', gx=0.0, gy=0.0, gz=9.81)],
+                real=False
+            ))
 
         # floor spring → vertical accel
         eqns.append(Group(
