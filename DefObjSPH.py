@@ -141,7 +141,7 @@ class GraspDeformableBlock(Application):
             eqns.append(
                 Group(
                     equations=[BodyForce(dest='block', sources=[],
-                                         fx=0, fy=0, fz=-9.81)],
+                                         fx=0, fy=0, fz=0)],
                     real=False
                 )
             )
