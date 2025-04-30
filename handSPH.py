@@ -143,10 +143,11 @@ class GraspDeformableBlock(Application):
 
         # optional gravity to settle block first
         if self.gravity_enabled:
-            eqns.append(Group(
-                equations=[Gravity(dest='block', gx=0.0, gy=0.0, gz=9.81)],
-                real=False
-            ))
+            eqns.append(
+                Group(equations=[BodyForce(dest='block', sources=None,
+                                        fx=0.0, fy=0.0, fz=-9.81)],
+                    real=False)
+            )
 
         # floor spring → vertical accel
         eqns.append(Group(
