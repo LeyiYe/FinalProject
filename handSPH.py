@@ -9,10 +9,6 @@ from pysph.sph.equation         import Equation, Group
 from pysph.sph.basic_equations  import BodyForce
 from pysph.sph.rigid_body       import RigidBodyWallCollision
 
-# -----------------------------------------------------------------------------
-# A spring + dashpot to keep the block from falling through the floor
-# only triggers when z < floor_z.
-# -----------------------------------------------------------------------------
 class FloorRepulsion(Equation):
     def __init__(self, dest, floor_z, k_pen, c_pen):
         super().__init__(dest, [])
@@ -25,25 +21,27 @@ class FloorRepulsion(Equation):
         if pen > 0.0:
             d_fz[d_idx] += self.k_pen * pen - self.c_pen * d_w[d_idx]
 
+
 class GraspDeformableBlock(Application):
     def initialize(self):
-        # sim params
-        self.dim    = 3
-        self.dx     = 0.01
-        self.hdx    = 1.3
-        self.rho0   = 1000.0
+        # You can coarsen dx for even fewer particles:
+        # self.dx = 0.015  # optional: use 0.01→0.015 to cut ~3× particle count
+        self.dx      = 0.01
+        self.hdx     = 1.3
+        self.dim     = 3
+        self.rho0    = 1000.0
 
-        # rubber block
+        # Rubber block properties
         self.E_block = 1e7
         self.nu      = 0.49
         self.c0      = 50.0
 
-        # geometry (m)
+        # Geometry
         self.block_size    = (0.3, 0.2, 0.1)
-        self.platform_size = (1.0, 0.6, 0.04)  # 4 layers at dx=0.01
+        self.platform_size = (1.0, 0.6, 0.04)   # 4 layers @dx=0.01
         self.gripper_size  = (0.05, 0.1, 0.2)
 
-        # gravity toggle
+        # Gravity toggle
         self.gravity_enabled = False
 
     def create_box(self, center, size):
@@ -56,134 +54,119 @@ class GraspDeformableBlock(Application):
                          center[1] + size[1]/2 - self.dx/2, ny)
         zs = np.linspace(center[2] - size[2]/2 + self.dx/2,
                          center[2] + size[2]/2 - self.dx/2, nz)
-        x,y,z = np.meshgrid(xs, ys, zs, indexing='ij')
+        x, y, z = np.meshgrid(xs, ys, zs, indexing='ij')
         return x.ravel(), y.ravel(), z.ravel()
 
     def create_particles(self):
-        # --- deformable block ---
+        # Deformable block
         bx, by, bz = self.create_box(
-            center=(0, 0,
-                    self.platform_size[2] + 0.5*self.block_size[2]),
+            center=(0, 0, self.platform_size[2] + 0.5*self.block_size[2]),
             size=self.block_size
         )
         block = get_particle_array_elastic_dynamics(
             name='block',
             x=bx, y=by, z=bz,
             h=self.hdx*self.dx,
-            m=self.dx**3 * self.rho0,
+            m=self.dx**3*self.rho0,
             rho=self.rho0,
             constants={
-                'E'      : self.E_block,
-                'nu'     : self.nu,
-                'rho_ref': self.rho0,
-                'c0_ref' : self.c0
+                'E':      self.E_block,
+                'nu':     self.nu,
+                'rho_ref':self.rho0,
+                'c0_ref': self.c0
             }
         )
-        # extras for DEM contact
+        # DEM extras
         block.add_property('rad_s', default=self.dx*0.5)
-        for n in (
-            'tang_disp_x','tang_disp_y','tang_disp_z',
-            'tang_velocity_x','tang_velocity_y','tang_velocity_z',
-            'fx','fy','fz','total_mass'
-        ):
+        for n in ('tang_disp_x','tang_disp_y','tang_disp_z',
+                  'tang_velocity_x','tang_velocity_y','tang_velocity_z',
+                  'fx','fy','fz','total_mass'):
             block.add_property(n, type='double', default=0.0)
         block.total_mass[:] = np.sum(block.m)
 
-        # --- rigid walls: platform + two jaws ---
+        # Rigid walls
         def make_wall(name, center, size, normal):
             x,y,z = self.create_box(center, size)
             pa = get_particle_array(
                 name=name,
                 x=x, y=y, z=z,
                 h=self.hdx*self.dx,
-                m=1e12,
-                rho=self.rho0,
-                is_boundary=1,
-                is_rigid=1
+                m=1e12, rho=self.rho0,
+                is_boundary=1, is_rigid=1
             )
             pa.add_property('nx', type='double', default=normal[0])
             pa.add_property('ny', type='double', default=normal[1])
             pa.add_property('nz', type='double', default=normal[2])
             return pa
 
-        platform = make_wall(
-            'platform',
-            (0, 0, self.platform_size[2]/2),
-            self.platform_size,
-            normal=(0,0,1)
-        )
-        gr1 = make_wall(
-            'gripper1',
-            (-0.4, 0,
-             self.platform_size[2] + 0.5*self.gripper_size[2]),
-            self.gripper_size,
-            normal=(1,0,0)
-        )
-        gr2 = make_wall(
-            'gripper2',
-            (0.4, 0,
-             self.platform_size[2] + 0.5*self.gripper_size[2]),
-            self.gripper_size,
-            normal=(-1,0,0)
-        )
-        self.gr1, self.gr2 = gr1, gr2
+        plat = make_wall('platform',
+                         (0, 0, self.platform_size[2]/2),
+                         self.platform_size,
+                         normal=(0,0,1))
+        g1   = make_wall('gripper1',
+                         (-0.4, 0,
+                          self.platform_size[2]+0.5*self.gripper_size[2]),
+                         self.gripper_size,
+                         normal=(1,0,0))
+        g2   = make_wall('gripper2',
+                         (0.4, 0,
+                          self.platform_size[2]+0.5*self.gripper_size[2]),
+                         self.gripper_size,
+                         normal=(-1,0,0))
+        self.gr1, self.gr2 = g1, g2
 
-        return [block, platform, gr1, gr2]
+        return [block, plat, g1, g2]
 
     def create_scheme(self):
-        # block only; walls handled via DEM
         from pysph.sph.solid_mech.basic import ElasticSolidsScheme
-        elastic = ElasticSolidsScheme(
+        scheme = ElasticSolidsScheme(
             elastic_solids=['block'],
             solids=[],
             dim=self.dim,
             artificial_stress_eps=0.5,
             xsph_eps=0.5
         )
-        return SchemeChooser(default='elastic', elastic=elastic)
+        return SchemeChooser(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
-        # DEM‐safe timestep
-        self.scheme.configure_solver(dt=3e-5, tf=2.0, pfreq=50)
+        # larger dt + less output
+        self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=200)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-
-        # 1) floor penalty spring
+        # floor spring
         eqns.append(Group(equations=[
             FloorRepulsion(dest='block',
                            floor_z=self.platform_size[2],
                            k_pen=5e5, c_pen=50.0)
         ], real=False))
-
-        # 2) DEM wall collisions
+        # DEM collisions
         eqns.append(Group(equations=[
-            RigidBodyWallCollision('block', ['platform'], kn=1e3, mu=0.2, en=0.8),
+            RigidBodyWallCollision('block', ['platform'],  kn=1e3, mu=0.2, en=0.8),
             RigidBodyWallCollision('block', ['gripper1'], kn=1e3, mu=0.2, en=0.8),
             RigidBodyWallCollision('block', ['gripper2'], kn=1e3, mu=0.2, en=0.8),
         ], real=False))
-
         return eqns
 
     def post_step(self, solver):
         dt = solver.dt
         block = self.particles[0]
 
-        # detect “fully lifted” by checking centroid height
+        # lift detection
         com_z = np.mean(block.z)
-        lift_threshold = self.platform_size[2] + 0.5*self.block_size[2] + 0.01
-        if (not self.gravity_enabled) and com_z > lift_threshold:
+        lift_thr = self.platform_size[2] + 0.5*self.block_size[2] + 0.01
+        if (not self.gravity_enabled) and com_z > lift_thr:
             self.gravity_enabled = True
 
-        # after lift, manually apply gravity each step
+        # apply gravity only after lift
         if self.gravity_enabled:
             block.w[:] += -9.81 * dt
 
-        # move jaws: close 1 cm past contact, then lift
-        g1, g2 = self.gr1, self.gr2
+        # move jaws (1 cm overlap → lift)
         half_b = 0.5*self.block_size[0]
         half_g = 0.5*self.gripper_size[0]
-        target = -half_b - half_g + 0.01  # 1 cm overlap
+        target = -half_b - half_g + 0.01
+        g1, g2 = self.gr1, self.gr2
 
         if g1.x[0] < target:
             g1.u[:] =  0.2; g2.u[:] = -0.2
@@ -192,7 +175,7 @@ class GraspDeformableBlock(Application):
             g1.u[:] = g2.u[:] = 0.0
             g1.w[:] = g2.w[:] = 0.3
 
-        # nudge jaw positions so DEM never loses contact
+        # nudge jaw positions
         for g in (g1, g2):
             g.x += g.u * dt
             g.y += g.v * dt
