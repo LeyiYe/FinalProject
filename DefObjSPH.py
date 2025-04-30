@@ -110,8 +110,7 @@ class GraspDeformableBlock(Application):
         from pysph.sph.solid_mech.basic import ElasticSolidsScheme
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'], solids=['plat','g1','g2'], dim=self.dim,
-            artificial_stress_eps=0.5, xsph_eps=0.5,
-            visco_alpha=0.05, visco_beta=0.0)
+            artificial_stress_eps=0.5, xsph_eps=0.5)
         return SchemeChooser(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
