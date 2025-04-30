@@ -149,19 +149,13 @@ class GraspDeformableBlock(Application):
                 real=False
             ))
 
-        # (2) floor spring → vertical acceleration
-        eqns.append(Group(
-            equations=[
-                FloorRepulsion(dest='block', floor_z=self.platform_size[2],
-                               k_pen=5e5, c_pen=50.0)
-            ],
-            real=False
-        ))
+                # (2) -- removed floor spring; rely on DEM collision against platform
+
 
         # (3) DEM collisions with all walls, refresh neighbors each step
         eqns.append(Group(
             equations=[
-                RigidBodyWallCollision('block', ['platform'], kn=1e3, mu=0.2, en=0.8),
+                RigidBodyWallCollision('block', ['platform'], kn=1e3, mu=0.5, en=0.0),  # low restitution, higher friction,
                 RigidBodyWallCollision('block', ['gripper1'], kn=1e3, mu=0.2, en=0.8),
                 RigidBodyWallCollision('block', ['gripper2'], kn=1e3, mu=0.2, en=0.8),
             ],
@@ -195,7 +189,11 @@ class GraspDeformableBlock(Application):
             g1.w[:] = 0.3
 
         # Nudge jaws for contact
+                # Nudge jaws for contact (single update)
         for g in (g1, g2):
+            g.x += g.u * dt
+            g.y += g.v * dt
+            g.z += g.w * dt
             g.x += g.u * dt
             g.y += g.v * dt
             g.z += g.w * dt
