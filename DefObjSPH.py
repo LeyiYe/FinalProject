@@ -110,7 +110,8 @@ class GraspDeformableBlock(Application):
         from pysph.sph.solid_mech.basic import ElasticSolidsScheme
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'], solids=[], dim=self.dim,
-            artificial_stress_eps=0.5, xsph_eps=0.5)
+            artificial_stress_eps=0.5, xsph_eps=0.5,
+            visco_alpha=0.05, visco_beta=0.0)
         return SchemeChooser(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
@@ -128,9 +129,13 @@ class GraspDeformableBlock(Application):
             RigidBodyWallCollision('block',['gripper1'],kn=1e5,mu=0.3,en=0.2),
             RigidBodyWallCollision('block',['gripper2'],kn=1e5,mu=0.3,en=0.2),
         ], real=False, update_nnps=True))
-        # convert forces into accelerations for all bodies
-        for name in ['block','platform','gripper1','gripper2']:
-            eqns.append(Group(equations=[ForceToAcceleration(dest=name)], real=False))
+                # convert forces into accelerations for the block only
+        eqns.append(
+            Group(
+                equations=[ForceToAcceleration(dest='block')],
+                real=False
+            )
+        )
         return eqns
 
     def post_step(self, solver):
