@@ -125,7 +125,7 @@ class GraspDeformableBlock(Application):
         # Include rigid bodies in neighbor list
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'],
-            solids=[],
+            solids=[]  # walls are rigid, exclude them from elastic stress calculations,
             dim=self.dim,
             artificial_stress_eps=0.5,
             xsph_eps=0.5
@@ -133,7 +133,8 @@ class GraspDeformableBlock(Application):
         return SchemeChooser(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
-        self.scheme.configure_solver(dt=5e-5, tf=2.0, pfreq=200)
+        # Faster wall‐clock by increasing time step and reducing output frequency
+        self.scheme.configure_solver(dt=2e-4, tf=2.0, pfreq=100)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
@@ -141,7 +142,7 @@ class GraspDeformableBlock(Application):
             eqns.append(
                 Group(
                     equations=[BodyForce(dest='block', sources=[],
-                                         fx=0, fy=0, fz=0)],
+                                         fx=0, fy=0, fz=-9.81)],
                     real=False
                 )
             )
