@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 import numpy as np
 
-from pysph.base.utils            import get_particle_array
-from pysph.solver.application    import Application
-from pysph.sph.scheme            import SchemeChooser
-from pysph.sph.solid_mech.basic  import (
+from pysph.base.utils           import get_particle_array
+from pysph.solver.application   import Application
+from pysph.sph.scheme           import SchemeChooser
+from pysph.sph.solid_mech.basic import (
     ElasticSolidsScheme,
     get_particle_array_elastic_dynamics
 )
-from pysph.sph.equation          import Group
-from pysph.sph.basic_equations   import BodyForce
+from pysph.sph.equation         import Group
+from pysph.sph.basic_equations  import BodyForce
 
 class GraspDeformableBlock(Application):
     def initialize(self):
-        # Simulation parameters
+        # Basic sim parameters
         self.dim    = 3
         self.dx     = 0.01
         self.hdx    = 1.3
         self.rho0   = 1000.0
 
-        # Rubber‐like block properties
-        self.E_block = 1e7    # 10 MPa
+        # Material properties
+        self.E_block = 1e6    # 1 MPa for a softer rubber
         self.nu      = 0.49
         self.c0      = 50.0
 
-        # Geometries (m)
+        # Geometry (m)
         self.block_size    = (0.3, 0.2, 0.1)
-        # doubled platform thickness to 0.04 m for 4 layers @dx=0.01
+        # PLATFORM THICKNESS DOUBLED TO 0.04 m → 4 LAYERS @ dx=0.01
         self.platform_size = (1.0, 0.6, 0.04)
         self.gripper_size  = (0.05, 0.1, 0.2)
 
@@ -46,8 +46,7 @@ class GraspDeformableBlock(Application):
     def create_particles(self):
         # 1) Deformable block
         bx, by, bz = self.create_box(
-            center=(0, 0,
-                    self.platform_size[2] + 0.5*self.block_size[2]),
+            center=(0, 0, self.platform_size[2] + 0.5*self.block_size[2]),
             size=self.block_size
         )
         block = get_particle_array_elastic_dynamics(
@@ -64,7 +63,7 @@ class GraspDeformableBlock(Application):
             }
         )
 
-        # 2) Platform & grippers as super‐stiff elastic solids
+        # 2) Platform & gripper jaws as stiff elastic solids
         def make_rigid(name, center, size, E_rigid, mass_factor):
             x,y,z = self.create_box(center, size)
             return get_particle_array_elastic_dynamics(
@@ -81,9 +80,9 @@ class GraspDeformableBlock(Application):
                 }
             )
 
-        # make them 100× stiffer and 1e4× heavier than the block
-        E_rigid    = 1e9   # 1 GPa
-        mass_factor= 1e4
+        # RIGID SOLID PARAMETERS
+        E_rigid    = 1e8    # 100 MPa
+        mass_factor= 1e3    # 1,000× heavier per particle
 
         platform = make_rigid(
             'platform',
@@ -109,23 +108,23 @@ class GraspDeformableBlock(Application):
         return [block, platform, gripper1, gripper2]
 
     def create_scheme(self):
-        # All four bodies are elastic solids in the same SPH solve.
-        elastic = ElasticSolidsScheme(
-            elastic_solids=['block', 'platform', 'gripper1', 'gripper2'],
+        # All bodies in one elastic‐solid solve
+        scheme = ElasticSolidsScheme(
+            elastic_solids=['block','platform','gripper1','gripper2'],
             solids=[],
             dim=self.dim,
-            artificial_stress_eps=0.5,
-            xsph_eps=0.5
+            artificial_stress_eps=1.0,   # stronger artificial‐stress damping
+            xsph_eps=1.0                 # stronger XSPH smoothing
         )
-        return SchemeChooser(default='elastic', elastic=elastic)
+        return SchemeChooser(default='elastic', elastic=scheme)
 
     def configure_scheme(self):
-        # You can safely use dt=1e-4 now
-        self.scheme.configure_solver(dt=1e-4, tf=2.0, pfreq=50)
+        # dt small enough for stability, but not tiny
+        self.scheme.configure_solver(dt=5e-5, tf=2.0, pfreq=50)
 
     def create_equations(self):
         eqns = self.scheme.get_equations()
-        # gravity only on the block
+        # gravity only on the deformable block
         eqns.append(Group(equations=[
             BodyForce(dest='block', sources=None,
                       fx=0, fy=0, fz=-9.81)
@@ -133,24 +132,24 @@ class GraspDeformableBlock(Application):
         return eqns
 
     def post_step(self, solver):
-        # Manually move the gripper jaws
+        # move jaws manually (incorporating the integrator step too)
         g1, g2 = self.particles[2], self.particles[3]
         dt     = solver.dt
 
         half_b = 0.5*self.block_size[0]
         half_g = 0.5*self.gripper_size[0]
-        # close until 5 mm of overlap, then lift
-        target = -half_b - half_g + 0.005
+        target = -half_b - half_g + 0.005  # 5 mm overlap
 
         if g1.x[0] < target:
+            # closing
             g1.u[:] =  0.2; g2.u[:] = -0.2
             g1.w[:] = g2.w[:] = 0.0
         else:
+            # lifting
             g1.u[:] = g2.u[:] = 0.0
             g1.w[:] = g2.w[:] = 0.3
 
-        # positions get updated automatically by the integrator,
-        # but we also nudge them here to bypass any residual slip:
+        # nudge them so any minor slip is corrected
         for g in (g1, g2):
             g.x += g.u * dt
             g.y += g.v * dt
