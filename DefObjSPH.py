@@ -128,9 +128,7 @@ class GraspDeformableBlock(Application):
             solids=['platform','gripper1','gripper2'],
             dim=self.dim,
             artificial_stress_eps=0.5,
-            xsph_eps=0.5,
-            visco_alpha=0.05,
-            visco_beta=0.0
+            xsph_eps=0.5
         )
         return SchemeChooser(default='elastic', elastic=scheme)
 
