@@ -145,7 +145,8 @@ class GraspDeformableBlock(Application):
         # optional gravity to settle block first
         if self.gravity_enabled:
             eqns.append(Group(
-                equations=[Gravity(dest='block', gx=0.0, gy=0.0, gz=9.81)],
+                equations=[BodyForce(dest='block', sources=[],
+                                     fx=0.0, fy=0.0, fz=-9.81)],
                 real=False
             ))
 
