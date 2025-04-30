@@ -165,9 +165,9 @@ class GraspDeformableBlock(Application):
         # DEM collisions (bouncy)
         eqns.append(Group(
             equations=[
-                RigidBodyWallCollision('block', ['platform'], kn=1e3, mu=0.5, en=0.4)  # reduced restitution, higher friction,
-                RigidBodyWallCollision('block', ['gripper1'], kn=1e3, mu=0.5, en=0.4)  # reduced restitution,
-                RigidBodyWallCollision('block', ['gripper2'], kn=1e3, mu=0.5, en=0.4)  # reduced restitution,
+                RigidBodyWallCollision('block', ['platform'], kn=1e3, mu=0.5, en=0.4),  # reduced restitution, higher friction,
+                RigidBodyWallCollision('block', ['gripper1'], kn=1e3, mu=0.5, en=0.4),  # reduced restitution,
+                RigidBodyWallCollision('block', ['gripper2'], kn=1e3, mu=0.5, en=0.4),  # reduced restitution,
             ], real=False, update_nnps=True
         ))
 
