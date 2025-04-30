@@ -125,7 +125,7 @@ class GraspDeformableBlock(Application):
         # Include rigid bodies in neighbor list
         scheme = ElasticSolidsScheme(
             elastic_solids=['block'],
-            solids=[]  # walls are rigid, exclude them from elastic stress calculations,
+            solids=[],  # walls are rigid, exclude them from elastic stress calculations,
             dim=self.dim,
             artificial_stress_eps=0.5,
             xsph_eps=0.5
@@ -142,7 +142,7 @@ class GraspDeformableBlock(Application):
             eqns.append(
                 Group(
                     equations=[BodyForce(dest='block', sources=[],
-                                         fx=0, fy=0, fz=-9.81)],
+                                         fx=0, fy=0, fz=0)],
                     real=False
                 )
             )
