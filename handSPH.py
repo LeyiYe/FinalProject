@@ -181,15 +181,7 @@ class GraspDeformableBlock(Application):
 
     def post_step(self, solver):
         dt = solver.dt
-        block = self.particles[0]
-
-        # Clamp any block particles below the floor
-        floor_z = self.platform_size[2]
-        below = block.z < floor_z
-        if np.any(below):
-            block.z[below] = floor_z
-            block.w[below] = np.maximum(block.w[below], 0.0)
-
+        block = self.particles[0]        # Let floor spring handle floor interactions (removed manual clamp)
         # Move the jaws: squeeze then lift
         half_b = 0.5 * self.block_size[0]
         half_g = 0.5 * self.gripper_size[0]
@@ -202,7 +194,11 @@ class GraspDeformableBlock(Application):
             g1.u[:] = g2.u[:] = 0.0
             g1.w[:] = 0.3
 
+        # Nudge jaws for contact
         for g in (g1, g2):
+            g.x += g.u * dt
+            g.y += g.v * dt
+            g.z += g.w * dt
             g.x += g.u * dt
             g.y += g.v * dt
             g.z += g.w * dt
