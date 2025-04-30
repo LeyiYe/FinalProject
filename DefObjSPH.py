@@ -142,7 +142,7 @@ class GraspDeformableBlock(Application):
             eqns.append(
                 Group(
                     equations=[BodyForce(dest='block', sources=[],
-                                         fx=0, fy=0, fz=0)],
+                                         fx=0, fy=0, fz=-9.81)],
                     real=False
                 )
             )
@@ -159,9 +159,9 @@ class GraspDeformableBlock(Application):
         eqns.append(
             Group(
                 equations=[
-                    RigidBodyWallCollision('block',['platform'],kn=1e5,mu=0.5,en=0.3),
-                    RigidBodyWallCollision('block',['gripper1'],kn=1e5,mu=0.5,en=0.3),
-                    RigidBodyWallCollision('block',['gripper2'],kn=1e5,mu=0.5,en=0.3),
+                    RigidBodyWallCollision('block',['platform'],kn=1e5,kt=5e4,mu=0.8,en=0.2),  # explicit tangential stiffness, higher friction),
+                    RigidBodyWallCollision('block',['gripper1'],kn=1e5,kt=5e4,mu=0.8,en=0.2),  # explicit kt, strong grip),
+                    RigidBodyWallCollision('block',['gripper2'],kn=1e5,kt=5e4,mu=0.8,en=0.2),  # explicit kt, strong grip),
                 ],
                 real=False,
                 update_nnps=True
